@@ -1,0 +1,74 @@
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_isEdit ? "Editar Configuración" : "Nueva Configuración")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudSelect @bind-Value="_configType" Label="Tipo de Configuración *" Variant="Variant.Outlined" Required="true" Disabled="@_isEdit">
+                <MudSelectItem Value="@("AutoResponse")">Respuesta Automática</MudSelectItem>
+                <MudSelectItem Value="@("AgentPersonality")">Personalidad de Agente</MudSelectItem>
+                <MudSelectItem Value="@("AgentEnabled")">Habilitación de Agente</MudSelectItem>
+                <MudSelectItem Value="@("HomePageDescription")">Descripción de Página de Inicio</MudSelectItem>
+            </MudSelect>
+            <MudTextField @bind-Value="_key" Label="Clave *" Variant="Variant.Outlined" Required="true" Disabled="@_isEdit" />
+            <MudTextField @bind-Value="_value" Label="Valor *" Variant="Variant.Outlined" Lines="3" Required="true" />
+            <MudTextField @bind-Value="_description" Label="Descripción" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_matchPattern" Label="Patrón de Coincidencia (Regex)" Variant="Variant.Outlined" HelperText="Solo para Respuestas Automáticas" />
+            <MudNumericField @bind-Value="_priority" Label="Prioridad" Variant="Variant.Outlined" Min="0" HelperText="Solo para Respuestas Automáticas. Mayor número = mayor prioridad" />
+            <MudSwitch @bind-Value="_isActive" Label="Activa" Color="Color.Success" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled">Guardar</MudButton>
+        <MudButton OnClick="Cancel" Color="Color.Secondary">Cancelar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
+    [Parameter] public SystemConfiguration? Config { get; set; }
+
+    private bool _isEdit => Config != null;
+    private string _configType = string.Empty;
+    private string _key = string.Empty;
+    private string _value = string.Empty;
+    private string _description = string.Empty;
+    private string _matchPattern = string.Empty;
+    private int _priority = 0;
+    private bool _isActive = true;
+
+    protected override void OnInitialized()
+    {
+        if (Config != null)
+        {
+            _configType = Config.ConfigurationType;
+            _key = Config.Key;
+            _value = Config.Value;
+            _description = Config.Description ?? string.Empty;
+            _matchPattern = Config.MatchPattern ?? string.Empty;
+            _priority = Config.Priority;
+            _isActive = Config.IsActive;
+        }
+    }
+
+    private void Submit()
+    {
+        if (string.IsNullOrWhiteSpace(_configType) || string.IsNullOrWhiteSpace(_key) || string.IsNullOrWhiteSpace(_value))
+        {
+            return;
+        }
+        MudDialog?.Close(DialogResult.Ok(new CreateSystemConfigurationRequest
+        {
+            ConfigurationType = _configType,
+            Key = _key,
+            Value = _value,
+            Description = _description,
+            MatchPattern = _matchPattern,
+            Priority = _priority,
+            IsActive = _isActive
+        }));
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+}
+

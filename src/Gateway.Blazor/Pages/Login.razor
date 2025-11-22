@@ -1,0 +1,158 @@
+@page "/login"
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">Iniciar Sesión</MudText>
+        
+        <EditForm Model="@_loginModel" OnSubmit="HandleLogin">
+            
+            <MudTextField @bind-Value="_loginModel.Email" 
+                         @bind-Value:after="OnEmailChanged"
+                         Label="Email" 
+                         Variant="Variant.Outlined" 
+                         FullWidth="true" 
+                         Class="mt-4"
+                         Required="true" />
+            
+            <MudTextField @bind-Value="_loginModel.Password" 
+                         Label="Contraseña" 
+                         Variant="Variant.Outlined" 
+                         InputType="InputType.Password" 
+                         FullWidth="true" 
+                         Class="mt-4" />
+            
+            <MudButton ButtonType="ButtonType.Submit" 
+                      Variant="Variant.Filled" 
+                      Color="Color.Primary" 
+                      FullWidth="true" 
+                      Class="mt-4"
+                      Disabled="@_isLoading">
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Iniciando sesión...</MudText>
+                }
+                else
+                {
+                    <MudText>Iniciar Sesión</MudText>
+                }
+            </MudButton>
+        </EditForm>
+        
+        <MudDivider Class="my-4" />
+        
+        <MudText Align="Align.Center">
+            <MudLink Href="/register">¿No tienes cuenta? Regístrate</MudLink>
+        </MudText>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private LoginRequest _loginModel = new();
+    private bool _isLoading = false;
+
+    protected override void OnInitialized()
+    {
+        if (AuthService.IsAuthenticated())
+        {
+            Navigation.NavigateTo("/dashboard");
+        }
+    }
+
+    private void OnEmailChanged()
+    {
+        // Si no es un email válido (probablemente es un hash), limpiar el campo de contraseña
+        if (!IsValidEmail(_loginModel.Email))
+        {
+            _loginModel.Password = string.Empty;
+            StateHasChanged();
+        }
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return true; // Si está vacío, requerir contraseña por defecto
+
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            // Si no es un email válido, probablemente es un hash
+            return false;
+        }
+    }
+
+    private async Task HandleLogin(EditContext context)
+    {
+        // Validación manual antes de enviar
+        if (string.IsNullOrWhiteSpace(_loginModel.Email))
+        {
+            Snackbar.Add("El email es requerido", Severity.Warning);
+            return;
+        }
+
+        var isValidEmail = IsValidEmail(_loginModel.Email);
+        
+        // Solo validar contraseña si es un email válido
+        if (isValidEmail && string.IsNullOrWhiteSpace(_loginModel.Password))
+        {
+            Snackbar.Add("La contraseña es requerida", Severity.Warning);
+            return;
+        }
+
+        _isLoading = true;
+        try
+        {
+            // Si no es un email válido (es un hash), enviar contraseña vacía
+            var password = isValidEmail ? _loginModel.Password : string.Empty;
+            var email = _loginModel.Email.Trim();
+            
+            var response = await AuthService.LoginAsync(email, password);
+            
+            if (response != null && !string.IsNullOrEmpty(response.Token))
+            {
+                Snackbar.Add("Sesión iniciada correctamente", Severity.Success);
+                
+                // Notificar al AuthenticationStateProvider que el estado ha cambiado
+                // Esto permite que Blazor reconozca inmediatamente que el usuario está autenticado
+                if (AuthenticationStateProvider is CustomAuthStateProvider customProvider)
+                {
+                    customProvider.NotifyAuthenticationStateChanged();
+                }
+                
+                // Pequeño delay para asegurar que el estado se actualice completamente
+                await Task.Delay(300);
+                
+                // Navegar al dashboard después de que el estado de autenticación se haya actualizado
+                Navigation.NavigateTo("/dashboard");
+            }
+            else
+            {
+                Snackbar.Add("El usuario o la contraseña no coinciden", Severity.Error);
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Snackbar.Add("El usuario o la contraseña no coinciden", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al iniciar sesión: {ex.Message}", Severity.Error);
+            // Log del error completo para debugging
+            Console.WriteLine($"Login error: {ex}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}
+

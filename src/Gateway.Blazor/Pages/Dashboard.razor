@@ -1,0 +1,112 @@
+@page "/dashboard"
+@inject IAuthService AuthService
+@inject IApiService ApiService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Dashboard - Multi-Agent System</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Dashboard</MudText>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" Class="mt-4" />
+        <MudText Class="mt-4">Cargando...</MudText>
+    }
+    else if (!_isAuthenticated)
+    {
+        <MudAlert Severity="Severity.Warning">Debes iniciar sesión para ver el dashboard.</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" 
+                   OnClick="NavigateToLogin">
+            Ir al Login
+        </MudButton>
+    }
+    else if (_isAdminOrSuperUser)
+    {
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" Class="mt-4">
+            <MudTabPanel Text="Proyectos">
+                <AdminProjectsView />
+            </MudTabPanel>
+            <MudTabPanel Text="Usuarios">
+                <AdminUsersView />
+            </MudTabPanel>
+            <MudTabPanel Text="Logs">
+                <AdminLogsView />
+            </MudTabPanel>
+        </MudTabs>
+    }
+    else
+    {
+        <UserProjectsView />
+    }
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private bool _isAuthenticated = false;
+    private bool _isAdminOrSuperUser = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Verificar el estado de autenticación de forma asíncrona
+        await CheckAuthenticationState();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Verificar nuevamente después del primer render para asegurar que el estado está actualizado
+            await CheckAuthenticationState();
+        }
+    }
+
+    private async Task CheckAuthenticationState()
+    {
+        _isLoading = true;
+        
+        try
+        {
+            // Obtener el estado de autenticación actualizado
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            _isAuthenticated = authState.User.Identity?.IsAuthenticated ?? false;
+            
+            // Verificar también desde el AuthService como respaldo
+            if (!_isAuthenticated)
+            {
+                _isAuthenticated = AuthService.IsAuthenticated();
+            }
+            
+            if (_isAuthenticated)
+            {
+                var userRole = AuthService.GetUserRole();
+                _isAdminOrSuperUser = userRole == "Admin" || userRole == "SuperUsuario";
+            }
+        }
+        catch (Exception ex)
+        {
+            // En caso de error, verificar desde AuthService directamente
+            _isAuthenticated = AuthService.IsAuthenticated();
+            if (_isAuthenticated)
+            {
+                var userRole = AuthService.GetUserRole();
+                _isAdminOrSuperUser = userRole == "Admin" || userRole == "SuperUsuario";
+            }
+            
+            // Log del error para debugging
+            Console.WriteLine($"Error al verificar estado de autenticación: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void NavigateToLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+}

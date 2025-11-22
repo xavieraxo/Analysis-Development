@@ -1,0 +1,26 @@
+@inject IApiService ApiService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h5" GutterBottom="true">Logs del Sistema</MudText>
+
+@if (_isLoading)
+{
+    <MudProgressCircular Indeterminate="true" Class="mt-4" />
+}
+else
+{
+    <MudAlert Severity="Severity.Info" Class="mt-4">
+        Los logs del sistema se mostrarán aquí. Esta funcionalidad está en desarrollo.
+    </MudAlert>
+}
+
+@code {
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(500); // Simular carga
+        _isLoading = false;
+    }
+}
+

@@ -1,0 +1,107 @@
+@inject IApiService ApiService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+        <MudText Typo="Typo.h5">Mis Proyectos</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="ShowCreateModal">
+            Nuevo Proyecto
+        </MudButton>
+    </MudStack>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" Class="mt-4" />
+    }
+    else if (_projects != null && _projects.Any())
+    {
+        <MudGrid Spacing="3" Class="mt-4">
+            @foreach (var project in _projects)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Class="cursor-pointer" Elevation="2" @onclick="@(() => OpenProject(project.Id))">
+                        <MudCardContent>
+                            <MudText Typo="Typo.h6">@(project?.Name ?? "Sin nombre")</MudText>
+                            <MudText Typo="Typo.body2" Class="mt-2">@(project?.Description ?? string.Empty)</MudText>
+                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(project?.Status ?? string.Empty)" Variant="Variant.Filled" Class="mt-2">@(project?.Status ?? string.Empty)</MudChip>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">No hay proyectos. Crea uno nuevo para comenzar.</MudAlert>
+    }
+</MudStack>
+
+
+@code {
+    private List<Gateway.Blazor.Models.Project>? _projects;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private async Task LoadProjects()
+    {
+        _isLoading = true;
+        try
+        {
+            _projects = await ApiService.GetAsync<List<Gateway.Blazor.Models.Project>>("/api/projects");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar proyectos: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ShowCreateModal()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<CreateProjectDialog>("Crear Proyecto", options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is CreateProjectRequest request && request != null)
+        {
+            try
+            {
+                var project = await ApiService.PostAsync<Gateway.Blazor.Models.Project>("/api/projects", request);
+                if (project != null)
+                {
+                    Snackbar.Add("Proyecto creado correctamente", Severity.Success);
+                    await LoadProjects();
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al crear proyecto: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private void OpenProject(int projectId)
+    {
+        Navigation.NavigateTo($"/project/{projectId}");
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Completed" => Color.Success,
+            "Cancelled" => Color.Error,
+            _ => Color.Primary
+        };
+    }
+}
+

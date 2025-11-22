@@ -1,0 +1,214 @@
+@page "/project/{ProjectId:int}"
+@using Gateway.Blazor.Models
+@inject IApiService ApiService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Proyecto - Multi-Agent System</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    @if (_project == null && !_isLoading)
+    {
+        <MudAlert Severity="Severity.Error">Proyecto no encontrado.</MudAlert>
+    }
+    else
+    {
+        <MudStack Spacing="3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.h4">@GetProjectName()</MudText>
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => Navigation.NavigateTo("/dashboard"))">
+                    Volver al Dashboard
+                </MudButton>
+            </MudStack>
+
+            @if (_project != null)
+            {
+                <MudText Typo="Typo.body1">@GetProjectDescription()</MudText>
+                <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(GetProjectStatus())" Variant="Variant.Filled">@GetProjectStatus()</MudChip>
+            }
+
+            <MudDivider Class="my-4" />
+
+            <MudText Typo="Typo.h6">Chat con los Agentes</MudText>
+
+            <MudPaper Elevation="2" Class="pa-4" Style="height: 500px; overflow-y: auto;">
+                <MudStack Spacing="2" Class="chat-container">
+                    @if (_messages != null)
+                    {
+                        @foreach (var message in _messages)
+                        {
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.caption" Color="@(message.From == "User" ? Color.Primary : Color.Secondary)">
+                                    @message.From - @message.At.ToString("HH:mm:ss")
+                                </MudText>
+                                <MudPaper Elevation="1" Class="pa-2" Style="@(message.From == "User" ? "background-color: var(--mud-palette-primary); color: white;" : "")">
+                                    <MudText>@message.Text</MudText>
+                                </MudPaper>
+                            </MudStack>
+                        }
+                    }
+                </MudStack>
+            </MudPaper>
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <MudTextField @bind-Value="_messageText" 
+                             Label="Escribe tu mensaje" 
+                             Variant="Variant.Outlined" 
+                             FullWidth="true"
+                             OnKeyDown="@HandleKeyDown" />
+                <MudButton Variant="Variant.Filled" 
+                         Color="Color.Primary" 
+                         StartIcon="@Icons.Material.Filled.Send"
+                         OnClick="SendMessage"
+                         Disabled="@(_isSending || string.IsNullOrWhiteSpace(_messageText))">
+                    Enviar
+                </MudButton>
+            </MudStack>
+
+            @if (_isSending)
+            {
+                <MudProgressLinear Indeterminate="true" />
+            }
+        </MudStack>
+    }
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" Class="mt-4" />
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+
+    private Gateway.Blazor.Models.Project? _project;
+    private List<ChatMessage> _messages = new();
+    private string _messageText = string.Empty;
+    private bool _isLoading = true;
+    private bool _isSending = false;
+    private string _conversationId = Guid.NewGuid().ToString();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProject();
+        await LoadConversation();
+    }
+
+    private async Task LoadProject()
+    {
+        try
+        {
+            _project = await ApiService.GetAsync<Gateway.Blazor.Models.Project>($"/api/projects/{ProjectId}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar proyecto: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadConversation()
+    {
+        if (_project == null) return;
+        var conversationId = _project.ConversationId ?? string.Empty;
+        if (!string.IsNullOrEmpty(conversationId))
+        {
+            _conversationId = conversationId;
+            try
+            {
+                var logs = await ApiService.GetAsync<List<ChatMessage>>($"/api/admin/logs/{_conversationId}");
+                if (logs != null)
+                {
+                    _messages = logs;
+                }
+            }
+            catch
+            {
+                // Si no hay logs, empezar conversación nueva
+            }
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_messageText) || _isSending)
+            return;
+
+        var userMessage = new ChatMessage
+        {
+            ConversationId = _conversationId,
+            From = "User",
+            Text = _messageText,
+            At = DateTimeOffset.UtcNow
+        };
+
+        _messages.Add(userMessage);
+        var messageToSend = _messageText;
+        _messageText = string.Empty;
+        _isSending = true;
+
+        try
+        {
+            var response = await ApiService.PostAsync<ChatResponse>($"/api/chat/run?projectId={ProjectId}", new
+            {
+                conversationId = _conversationId,
+                from = 0,
+                text = messageToSend,
+                at = DateTimeOffset.UtcNow
+            });
+
+            if (response != null && response.Messages != null)
+            {
+                _messages.AddRange(response.Messages);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al enviar mensaje: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSending = false;
+        }
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Completed" => Color.Success,
+            "Cancelled" => Color.Error,
+            _ => Color.Primary
+        };
+    }
+
+    private string GetProjectName()
+    {
+        if (_project == null) return "Cargando...";
+        return _project.Name ?? "Cargando...";
+    }
+
+    private string GetProjectDescription()
+    {
+        if (_project == null) return string.Empty;
+        return _project.Description ?? string.Empty;
+    }
+
+    private string GetProjectStatus()
+    {
+        if (_project == null) return string.Empty;
+        return _project.Status ?? string.Empty;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendMessage();
+        }
+    }
+}
+

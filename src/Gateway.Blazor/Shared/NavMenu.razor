@@ -1,0 +1,39 @@
+﻿@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<MudNavMenu>
+    <MudNavLink Href="/dashboard" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Dashboard">
+        Dashboard
+    </MudNavLink>
+    
+    @if (_isAuthenticated && _isAdminOrSuperUser)
+    {
+        <MudNavLink Href="/configurations" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">
+            Configuración
+        </MudNavLink>
+    }
+</MudNavMenu>
+
+@code {
+    private bool _isAuthenticated = false;
+    private bool _isAdminOrSuperUser = false;
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            _isAuthenticated = AuthService.IsAuthenticated();
+            if (_isAuthenticated)
+            {
+                var role = AuthService.GetUserRole();
+                _isAdminOrSuperUser = role == "Admin" || role == "SuperUsuario";
+            }
+        }
+        catch
+        {
+            // Si hay un error al verificar la autenticación, simplemente no mostrar el menú de admin
+            _isAuthenticated = false;
+            _isAdminOrSuperUser = false;
+        }
+    }
+}

@@ -1,0 +1,115 @@
+@inject IApiService ApiService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudStack Spacing="3">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+        <MudText Typo="Typo.h5">Usuarios</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="ShowCreateModal">
+            Crear Usuario
+        </MudButton>
+    </MudStack>
+
+    @if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" Class="mt-4" />
+    }
+    else if (_users != null && _users.Any())
+    {
+        <MudTable Items="_users" Hover="true" Dense="true" Class="mt-4">
+            <HeaderContent>
+                <MudTh>Nombre</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Rol</MudTh>
+                <MudTh>Estado</MudTh>
+                <MudTh>Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Nombre">@context.Name</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Rol">@context.Role</MudTd>
+                <MudTd DataLabel="Estado">
+                    <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Error)" Variant="Variant.Filled">@(context.IsActive ? "Activo" : "Inactivo")</MudChip>
+                </MudTd>
+                <MudTd DataLabel="Acciones">
+                    <MudButton Size="Size.Small" 
+                             Color="@(context.IsActive ? Color.Warning : Color.Success)" 
+                             OnClick="@(() => ToggleUserStatus(context.Id, !context.IsActive))">
+                        @(context.IsActive ? "Desactivar" : "Activar")
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-4">No hay usuarios.</MudAlert>
+    }
+</MudStack>
+
+
+@code {
+    private List<User>? _users;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        _isLoading = true;
+        try
+        {
+            _users = await ApiService.GetAsync<List<User>>("/api/admin/users");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar usuarios: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ShowCreateModal()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<CreateUserDialog>("Crear Usuario", options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is CreateUserRequest request && request != null)
+        {
+            try
+            {
+                var user = await ApiService.PostAsync<User>("/api/admin/users", request);
+                if (user != null)
+                {
+                    Snackbar.Add("Usuario creado correctamente", Severity.Success);
+                    await LoadUsers();
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al crear usuario: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ToggleUserStatus(int userId, bool isActive)
+    {
+        try
+        {
+            await ApiService.PutAsync<object>($"/api/admin/users/{userId}/status?isActive={isActive}", null);
+            Snackbar.Add($"Usuario {(isActive ? "activado" : "desactivado")} correctamente", Severity.Success);
+            await LoadUsers();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+}
+

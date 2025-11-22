@@ -1,0 +1,70 @@
+@inject IApiService ApiService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h5" GutterBottom="true">Todos los Proyectos</MudText>
+
+@if (_isLoading)
+{
+    <MudProgressCircular Indeterminate="true" Class="mt-4" />
+}
+else if (_allProjects != null && _allProjects.Any())
+{
+    <MudTable Items="_allProjects" Hover="true" Dense="true" Class="mt-4">
+        <HeaderContent>
+            <MudTh>Nombre</MudTh>
+            <MudTh>Estado</MudTh>
+            <MudTh>Fecha de Creación</MudTh>
+            <MudTh>Usuario</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Nombre">@(context?.Name ?? "Sin nombre")</MudTd>
+            <MudTd DataLabel="Estado">
+                <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context?.Status ?? string.Empty)" Variant="Variant.Filled">@(context?.Status ?? string.Empty)</MudChip>
+            </MudTd>
+            <MudTd DataLabel="Fecha">@(context?.CreatedAt.ToString("dd/MM/yyyy HH:mm") ?? string.Empty)</MudTd>
+            <MudTd DataLabel="Usuario">@(context?.UserId ?? 0)</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+else
+{
+    <MudAlert Severity="Severity.Info" Class="mt-4">No hay proyectos.</MudAlert>
+}
+
+@code {
+    private List<Gateway.Blazor.Models.Project>? _allProjects;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAllProjects();
+    }
+
+    private async Task LoadAllProjects()
+    {
+        _isLoading = true;
+        try
+        {
+            _allProjects = await ApiService.GetAsync<List<Gateway.Blazor.Models.Project>>("/api/admin/projects");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar proyectos: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Completed" => Color.Success,
+            "Cancelled" => Color.Error,
+            _ => Color.Primary
+        };
+    }
+}
+

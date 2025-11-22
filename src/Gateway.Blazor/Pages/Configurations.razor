@@ -1,0 +1,213 @@
+@page "/configurations"
+@inject IApiService ApiService
+@inject IAuthService AuthService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Configuración del Sistema - Multi-Agent System</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Configuración del Sistema</MudText>
+
+    <MudStack Spacing="3" Class="mt-4">
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+            <MudSelect @bind-Value="_selectedType" Label="Filtrar por tipo" Variant="Variant.Outlined" Style="max-width: 300px;">
+                <MudSelectItem Value="@((string?)null)">Todos los tipos</MudSelectItem>
+                <MudSelectItem Value="@("AutoResponse")">Respuestas Automáticas</MudSelectItem>
+                <MudSelectItem Value="@("AgentPersonality")">Personalidades de Agentes</MudSelectItem>
+                <MudSelectItem Value="@("AgentEnabled")">Habilitación de Agentes</MudSelectItem>
+                <MudSelectItem Value="@("HomePageDescription")">Descripción de Página de Inicio</MudSelectItem>
+            </MudSelect>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadConfigurations">Actualizar</MudButton>
+            <MudSpacer />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="ShowCreateModal">Nueva Configuración</MudButton>
+        </MudStack>
+
+        @if (_isLoading)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (_configurations != null && _configurations.Any())
+        {
+            <MudTable Items="_configurations" Hover="true" Dense="true">
+                <HeaderContent>
+                    <MudTh>Tipo</MudTh>
+                    <MudTh>Clave</MudTh>
+                    <MudTh>Valor</MudTh>
+                    <MudTh>Estado</MudTh>
+                    <MudTh>Prioridad</MudTh>
+                    <MudTh>Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Tipo">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled">@(context.ConfigurationType ?? string.Empty)</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Clave">
+                        <MudText Typo="Typo.body2">@context.Key</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Valor">
+                        <MudTooltip Text="@context.Value">
+                            <MudText Typo="Typo.body2">@(context.Value.Length > 50 ? context.Value.Substring(0, 50) + "..." : context.Value)</MudText>
+                        </MudTooltip>
+                    </MudTd>
+                    <MudTd DataLabel="Estado">
+                        <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)" Variant="Variant.Filled">@(context.IsActive ? "Activa" : "Inactiva")</MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Prioridad">@context.Priority</MudTd>
+                    <MudTd DataLabel="Acciones">
+                        <MudStack Row="true" Spacing="1">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary" OnClick="@(() => EditConfig(context))" />
+                            <MudIconButton Icon="@(context.IsActive ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" 
+                                         Size="Size.Small" 
+                                         Color="@(context.IsActive ? Color.Warning : Color.Success)" 
+                                         OnClick="@(() => ToggleConfig(context.Id, !context.IsActive))" />
+                            @if (CanDelete)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="@(() => DeleteConfig(context.Id))" />
+                            }
+                        </MudStack>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info">No hay configuraciones. Crea una nueva para comenzar.</MudAlert>
+        }
+    </MudStack>
+</MudContainer>
+
+
+@code {
+    private List<SystemConfiguration>? _configurations;
+    private bool _isLoading = true;
+    private string? _selectedType;
+    private bool CanDelete => AuthService.GetUserRole() == "Admin" || AuthService.GetUserRole() == "SuperUsuario";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadConfigurations();
+    }
+
+    private async Task LoadConfigurations()
+    {
+        _isLoading = true;
+        try
+        {
+            var endpoint = string.IsNullOrEmpty(_selectedType) 
+                ? "/api/configurations" 
+                : $"/api/configurations/{_selectedType}";
+            _configurations = await ApiService.GetAsync<List<SystemConfiguration>>(endpoint);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar configuraciones: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ShowCreateModal()
+    {
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<ConfigurationDialog>("Nueva Configuración", options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is CreateSystemConfigurationRequest request && request != null)
+        {
+            try
+            {
+                var config = await ApiService.PostAsync<SystemConfiguration>("/api/configurations", request);
+                if (config != null)
+                {
+                    Snackbar.Add("Configuración guardada correctamente", Severity.Success);
+                    await LoadConfigurations();
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al guardar configuración: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task EditConfig(SystemConfiguration config)
+    {
+        if (config == null) return;
+        
+        var parameters = new DialogParameters { { "Config", config } };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<ConfigurationDialog>("Editar Configuración", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled && result.Data is CreateSystemConfigurationRequest request && request != null)
+        {
+            try
+            {
+                var updateRequest = new UpdateSystemConfigurationRequest
+                {
+                    Value = request.Value ?? string.Empty,
+                    Description = request.Description,
+                    MatchPattern = request.MatchPattern,
+                    Priority = request.Priority,
+                    IsActive = request.IsActive
+                };
+                var updatedConfig = await ApiService.PutAsync<SystemConfiguration>($"/api/configurations/{config.Id}", updateRequest);
+                if (updatedConfig != null)
+                {
+                    Snackbar.Add("Configuración actualizada correctamente", Severity.Success);
+                    await LoadConfigurations();
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al actualizar configuración: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ToggleConfig(int id, bool isActive)
+    {
+        try
+        {
+            await ApiService.PatchAsync<object>($"/api/configurations/{id}/toggle?isActive={isActive}", null);
+            Snackbar.Add($"Configuración {(isActive ? "activada" : "desactivada")} correctamente", Severity.Success);
+            await LoadConfigurations();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteConfig(int id)
+    {
+        var parameters = new DialogParameters
+        {
+            { "ContentText", "¿Estás seguro de que deseas eliminar esta configuración?" },
+            { "ButtonText", "Eliminar" },
+            { "Color", Color.Error }
+        };
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+
+        var dialog = await DialogService.ShowAsync<MudDialog>("Confirmar eliminación", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            try
+            {
+                await ApiService.DeleteAsync<object>($"/api/configurations/{id}");
+                Snackbar.Add("Configuración eliminada correctamente", Severity.Success);
+                await LoadConfigurations();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error al eliminar: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}
+

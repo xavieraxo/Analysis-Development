@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WebSocket - Sistema Multi-Agente</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .messages {
+            margin-top: 20px;
+        }
+        .message {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+        }
+        .message.pm {
+            border-left-color: #28a745;
+        }
+        .message.dev {
+            border-left-color: #ffc107;
+        }
+        .message-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .message-text {
+            white-space: pre-wrap;
+            color: #555;
+        }
+        .message-time {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Test WebSocket - Sistema Multi-Agente</h1>
+        
+        <div class="input-group">
+            <label>Conversation ID:</label>
+            <input type="text" id="conversationId" value="ws-test-001" />
+        </div>
+        
+        <div class="input-group">
+            <label>Mensaje:</label>
+            <textarea id="messageText" placeholder="Escribe tu solicitud aquí...">Necesito crear una API simple para gestionar usuarios</textarea>
+        </div>
+        
+        <button id="connectBtn" onclick="connect()">Conectar y Enviar</button>
+        <button id="disconnectBtn" onclick="disconnect()" disabled>Desconectar</button>
+        
+        <div id="status" class="status disconnected">Desconectado</div>
+        
+        <div class="messages" id="messages"></div>
+    </div>
+
+    <script>
+        let ws = null;
+
+        function connect() {
+            const conversationId = document.getElementById('conversationId').value;
+            const messageText = document.getElementById('messageText').value;
+            
+            if (!messageText.trim()) {
+                alert('Por favor, escribe un mensaje');
+                return;
+            }
+
+            const wsUrl = 'ws://localhost:8093/chat/ws';
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function() {
+                updateStatus('Conectado', true);
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                
+                // Enviar mensaje
+                const message = {
+                    conversationId: conversationId,
+                    from: 0,
+                    text: messageText,
+                    at: new Date().toISOString()
+                };
+                
+                ws.send(JSON.stringify(message));
+                addMessage('Usuario', messageText, 0);
+            };
+
+            ws.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                const roleName = message.from === 1 ? 'PM (Project Manager)' : 
+                               message.from === 3 ? 'Dev (Desarrollador)' : 
+                               'Agente';
+                addMessage(roleName, message.text, message.from);
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                updateStatus('Error de conexión', false);
+            };
+
+            ws.onclose = function() {
+                updateStatus('Desconectado', false);
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function updateStatus(text, connected) {
+            const status = document.getElementById('status');
+            status.textContent = text;
+            status.className = 'status ' + (connected ? 'connected' : 'disconnected');
+        }
+
+        function addMessage(role, text, from) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + (from === 1 ? 'pm' : from === 3 ? 'dev' : '');
+            
+            const header = document.createElement('div');
+            header.className = 'message-header';
+            header.textContent = role;
+            
+            const textDiv = document.createElement('div');
+            textDiv.className = 'message-text';
+            textDiv.textContent = text;
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleString();
+            
+            messageDiv.appendChild(header);
+            messageDiv.appendChild(textDiv);
+            messageDiv.appendChild(timeDiv);
+            messagesDiv.appendChild(messageDiv);
+            
+            // Scroll al final
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    </script>
+</body>
+</html>
+
