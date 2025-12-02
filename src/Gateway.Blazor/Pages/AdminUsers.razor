@@ -1,0 +1,77 @@
+@page "/admin/users"
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Alta de Usuarios - Multi-Agent System</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">Alta de Usuarios</MudText>
+    
+    @if (!_isAuthenticated)
+    {
+        <MudAlert Severity="Severity.Warning">Debes iniciar sesión para ver esta página.</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="NavigateToLogin">
+            Ir al Login
+        </MudButton>
+    }
+    else if (!_isAdminOrSuperUser)
+    {
+        <MudAlert Severity="Severity.Error">No tienes permisos para acceder a esta página.</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="NavigateToHome">
+            Ir al Home
+        </MudButton>
+    }
+    else
+    {
+        <!-- Mostrar el componente AdminUsersView existente -->
+        <AdminUsersView />
+    }
+</MudContainer>
+
+@code {
+    private bool _isAuthenticated = false;
+    private bool _isAdminOrSuperUser = false;
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            // Verificar autenticación y permisos
+            _isAuthenticated = AuthService.IsAuthenticated();
+            
+            if (_isAuthenticated)
+            {
+                var role = AuthService.GetUserRole();
+                _isAdminOrSuperUser = role == "Admin" || role == "SuperUsuario";
+            }
+            
+            // Si no está autenticado, redirigir al login
+            if (!_isAuthenticated)
+            {
+                Navigation.NavigateTo("/login");
+            }
+            // Si está autenticado pero no tiene permisos, redirigir al home
+            else if (!_isAdminOrSuperUser)
+            {
+                Navigation.NavigateTo("/Home");
+            }
+        }
+        catch (Exception ex)
+        {
+            // En caso de error, redirigir al login
+            Console.WriteLine($"Error al verificar permisos en AdminUsers: {ex.Message}");
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private void NavigateToLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+    
+    private void NavigateToHome()
+    {
+        Navigation.NavigateTo("/Home");
+    }
+}
+

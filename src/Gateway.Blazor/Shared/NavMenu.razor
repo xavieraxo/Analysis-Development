@@ -2,15 +2,30 @@
 @inject NavigationManager Navigation
 
 <MudNavMenu>
+    <!-- Dashboard - Visible para todos los usuarios autenticados -->
     <MudNavLink Href="/dashboard" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Dashboard">
         Dashboard
     </MudNavLink>
     
+    <!-- Administración - Solo para Admin y SuperUsuario -->
     @if (_isAuthenticated && _isAdminOrSuperUser)
     {
-        <MudNavLink Href="/configurations" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">
-            Configuración
-        </MudNavLink>
+        <MudNavGroup Title="Administración" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="true">
+            <!-- Configuración - Navega a /configurations -->
+            <MudNavLink Href="/configurations" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">
+                Configuración
+            </MudNavLink>
+            
+            <!-- Alta Usuarios - Navega a /admin/users -->
+            <MudNavLink Href="/admin/users" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PersonAdd">
+                Alta Usuarios
+            </MudNavLink>
+            
+            <!-- Dashboard por Usuarios - Sin navegación (placeholder) -->
+            <MudNavLink Icon="@Icons.Material.Filled.Group" OnClick="OnDashboardByUsersClick" Style="cursor: pointer;">
+                Dashboard por Usuarios
+            </MudNavLink>
+        </MudNavGroup>
     }
 </MudNavMenu>
 
@@ -18,10 +33,13 @@
     private bool _isAuthenticated = false;
     private bool _isAdminOrSuperUser = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         try
         {
+            // Usar Task.Delay para asegurar que JS Runtime esté listo
+            await Task.Delay(100);
+            
             _isAuthenticated = AuthService.IsAuthenticated();
             if (_isAuthenticated)
             {
@@ -29,11 +47,22 @@
                 _isAdminOrSuperUser = role == "Admin" || role == "SuperUsuario";
             }
         }
-        catch
+        catch (Exception ex)
         {
             // Si hay un error al verificar la autenticación, simplemente no mostrar el menú de admin
             _isAuthenticated = false;
             _isAdminOrSuperUser = false;
+            Console.WriteLine($"Error en NavMenu.OnInitializedAsync: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Maneja el click en "Dashboard por Usuarios"
+    /// Por ahora es un placeholder, no navega a ninguna página
+    /// </summary>
+    private void OnDashboardByUsersClick()
+    {
+        // Por ahora esta opción no navega a ninguna página
+        // Se mantiene como placeholder para futura implementación
     }
 }

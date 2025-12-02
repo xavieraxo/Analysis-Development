@@ -24,7 +24,7 @@ builder.Services.AddMudServices();
 // HttpClient para API
 builder.Services.AddScoped(sp => new HttpClient 
 { 
-    BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:8094") 
+    BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:8096") 
 });
 
 // Servicios personalizados

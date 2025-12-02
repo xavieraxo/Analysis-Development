@@ -255,6 +255,253 @@ public class AuthServiceTests : IDisposable
         Assert.Null(result);
     }
 
+    // ========== TESTS DE REGISTRO ==========
+
+    [Fact]
+    public async Task RegisterAsync_WithValidData_ShouldCreateUserWithFinalRole()
+    {
+        // Arrange
+        var request = new RegisterRequest(
+            "newuser@example.com",
+            "Password123@",
+            "New User",
+            UserRole.Final
+        );
+
+        // Act
+        var result = await _authService.RegisterAsync(request);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("newuser@example.com", result.Email);
+        Assert.Equal("New User", result.Name);
+        Assert.Equal(UserRole.Final, result.Role);
+        Assert.True(result.IsActive);
+
+        // Verificar que se guardó en la base de datos
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == "newuser@example.com");
+        Assert.NotNull(user);
+        Assert.Equal("newuser@example.com", user.Email);
+        Assert.Equal("New User", user.Name);
+        Assert.Equal(UserRole.Final, user.Role);
+        Assert.True(user.IsActive);
+        
+        // Verificar que la contraseña está hasheada (no es la contraseña original)
+        Assert.NotEqual("Password123@", user.PasswordHash);
+        Assert.True(BCrypt.Net.BCrypt.Verify("Password123@", user.PasswordHash));
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WithValidData_ShouldNormalizeEmail()
+    {
+        // Arrange
+        var request = new RegisterRequest(
+            "  TestUser@EXAMPLE.COM  ", // Con espacios y mayúsculas
+            "Password123@",
+            "Test User",
+            UserRole.Final
+        );
+
+        // Act
+        var result = await _authService.RegisterAsync(request);
+
+        // Assert
+        Assert.NotNull(result);
+        // El email debe estar normalizado (lowercase y sin espacios)
+        Assert.Equal("testuser@example.com", result.Email);
+
+        // Verificar en la base de datos
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == "testuser@example.com");
+        Assert.NotNull(user);
+        Assert.Equal("testuser@example.com", user.Email);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WithDuplicateEmail_ShouldReturnNull()
+    {
+        // Arrange
+        var existingUser = new User
+        {
+            Email = "existing@example.com",
+            Name = "Existing User",
+            Role = UserRole.Final,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
+            IsActive = true
+        };
+        _context.Users.Add(existingUser);
+        await _context.SaveChangesAsync();
+
+        var request = new RegisterRequest(
+            "existing@example.com", // Email duplicado
+            "Password123@",
+            "New User",
+            UserRole.Final
+        );
+
+        // Act
+        var result = await _authService.RegisterAsync(request);
+
+        // Assert
+        Assert.Null(result); // Debe retornar null cuando el email ya existe
+
+        // Verificar que no se creó un usuario duplicado
+        var users = await _context.Users.Where(u => u.Email == "existing@example.com").ToListAsync();
+        Assert.Single(users); // Solo debe haber un usuario
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WithDuplicateEmailCaseInsensitive_ShouldReturnNull()
+    {
+        // Arrange
+        var existingUser = new User
+        {
+            Email = "existing@example.com",
+            Name = "Existing User",
+            Role = UserRole.Final,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
+            IsActive = true
+        };
+        _context.Users.Add(existingUser);
+        await _context.SaveChangesAsync();
+
+        var request = new RegisterRequest(
+            "EXISTING@EXAMPLE.COM", // Email duplicado con diferente case
+            "Password123@",
+            "New User",
+            UserRole.Final
+        );
+
+        // Act
+        var result = await _authService.RegisterAsync(request);
+
+        // Assert
+        Assert.Null(result); // Debe retornar null porque el email ya existe (case-insensitive)
+
+        // Verificar que no se creó un usuario duplicado
+        var users = await _context.Users.Where(u => u.Email.ToLower() == "existing@example.com").ToListAsync();
+        Assert.Single(users); // Solo debe haber un usuario
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ShouldHashPassword()
+    {
+        // Arrange
+        var request = new RegisterRequest(
+            "testhash@example.com",
+            "Password123@",
+            "Test User",
+            UserRole.Final
+        );
+
+        // Act
+        var result = await _authService.RegisterAsync(request);
+
+        // Assert
+        Assert.NotNull(result);
+
+        // Verificar que la contraseña está hasheada en la base de datos
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == "testhash@example.com");
+        Assert.NotNull(user);
+        
+        // La contraseña no debe ser la original
+        Assert.NotEqual("Password123@", user.PasswordHash);
+        
+        // La contraseña debe poder verificarse con BCrypt
+        Assert.True(BCrypt.Net.BCrypt.Verify("Password123@", user.PasswordHash));
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ShouldSetIsActiveToTrue()
+    {
+        // Arrange
+        var request = new RegisterRequest(
+            "activeuser@example.com",
+            "Password123@",
+            "Active User",
+            UserRole.Final
+        );
+
+        // Act
+        var result = await _authService.RegisterAsync(request);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.True(result.IsActive); // El usuario debe estar activo por defecto
+
+        // Verificar en la base de datos
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == "activeuser@example.com");
+        Assert.NotNull(user);
+        Assert.True(user.IsActive);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WithDifferentRoles_ShouldCreateUserWithCorrectRole()
+    {
+        // Arrange - Registro de usuario Final
+        var requestFinal = new RegisterRequest(
+            "finaluser@example.com",
+            "Password123@",
+            "Final User",
+            UserRole.Final
+        );
+
+        // Act
+        var resultFinal = await _authService.RegisterAsync(requestFinal);
+
+        // Assert
+        Assert.NotNull(resultFinal);
+        Assert.Equal(UserRole.Final, resultFinal.Role);
+
+        // Arrange - Registro de usuario Empresa
+        var requestEmpresa = new RegisterRequest(
+            "empresauser@example.com",
+            "Password123@",
+            "Empresa User",
+            UserRole.Empresa
+        );
+
+        // Act
+        var resultEmpresa = await _authService.RegisterAsync(requestEmpresa);
+
+        // Assert
+        Assert.NotNull(resultEmpresa);
+        Assert.Equal(UserRole.Empresa, resultEmpresa.Role);
+
+        // Verificar en la base de datos
+        var userFinal = await _context.Users.FirstOrDefaultAsync(u => u.Email == "finaluser@example.com");
+        var userEmpresa = await _context.Users.FirstOrDefaultAsync(u => u.Email == "empresauser@example.com");
+        
+        Assert.NotNull(userFinal);
+        Assert.Equal(UserRole.Final, userFinal.Role);
+        
+        Assert.NotNull(userEmpresa);
+        Assert.Equal(UserRole.Empresa, userEmpresa.Role);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ShouldTrimName()
+    {
+        // Arrange
+        var request = new RegisterRequest(
+            "trimname@example.com",
+            "Password123@",
+            "  Test User  ", // Con espacios
+            UserRole.Final
+        );
+
+        // Act
+        var result = await _authService.RegisterAsync(request);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Test User", result.Name); // El nombre debe estar sin espacios
+
+        // Verificar en la base de datos
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == "trimname@example.com");
+        Assert.NotNull(user);
+        Assert.Equal("Test User", user.Name);
+    }
+
     public void Dispose()
     {
         _context?.Dispose();

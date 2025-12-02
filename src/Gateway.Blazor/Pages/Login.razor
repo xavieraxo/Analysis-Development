@@ -10,20 +10,54 @@
         
         <EditForm Model="@_loginModel" OnSubmit="HandleLogin">
             
-            <MudTextField @bind-Value="_loginModel.Email" 
-                         @bind-Value:after="OnEmailChanged"
-                         Label="Email" 
-                         Variant="Variant.Outlined" 
-                         FullWidth="true" 
-                         Class="mt-4"
-                         Required="true" />
+            <!-- Campo de Email - Oculto si se muestra el hash de SuperAdmin -->
+            @if (!_showSuperAdminHash)
+            {
+                <MudTextField @bind-Value="_loginModel.Email" 
+                             @bind-Value:after="OnEmailChanged"
+                             Label="Email" 
+                             Variant="Variant.Outlined" 
+                             FullWidth="true" 
+                             Class="mt-4"
+                             Required="true" />
+            }
             
-            <MudTextField @bind-Value="_loginModel.Password" 
-                         Label="Contraseña" 
-                         Variant="Variant.Outlined" 
-                         InputType="InputType.Password" 
-                         FullWidth="true" 
-                         Class="mt-4" />
+            <!-- Campo de Hash de SuperAdministrador - Oculto por defecto -->
+            @if (_showSuperAdminHash)
+            {
+                <MudTextField @bind-Value="_superAdminHash" 
+                             Label="Hash de SuperAdministrador" 
+                             Variant="Variant.Outlined" 
+                             FullWidth="true" 
+                             Class="mt-4"
+                             Required="true"
+                             HelperText="Ingrese el hash de acceso de SuperAdministrador" />
+            }
+            
+            <!-- Campo de Contraseña - Oculto si se muestra el hash de SuperAdmin -->
+            @if (!_showSuperAdminHash)
+            {
+                <MudTextField @bind-Value="_loginModel.Password" 
+                             Label="Contraseña" 
+                             Variant="Variant.Outlined" 
+                             InputType="InputType.Password" 
+                             FullWidth="true" 
+                             Class="mt-4" />
+            }
+            
+            <!-- Enlace para mostrar/ocultar modo SuperAdministrador -->
+            <div class="mt-3" style="text-align: right;">
+                <MudLink OnClick="ToggleSuperAdminMode" Style="cursor: pointer; font-size: 0.875rem;">
+                    @if (_showSuperAdminHash)
+                    {
+                        <text>← Volver a login normal</text>
+                    }
+                    else
+                    {
+                        <text>¿Eres SuperAdministrador?</text>
+                    }
+                </MudLink>
+            </div>
             
             <MudButton ButtonType="ButtonType.Submit" 
                       Variant="Variant.Filled" 
@@ -54,13 +88,36 @@
 @code {
     private LoginRequest _loginModel = new();
     private bool _isLoading = false;
+    private bool _showSuperAdminHash = false;
+    private string _superAdminHash = string.Empty;
 
     protected override void OnInitialized()
     {
+        // Si el usuario ya está autenticado, redirigir a Home
         if (AuthService.IsAuthenticated())
         {
-            Navigation.NavigateTo("/dashboard");
+            Navigation.NavigateTo("/Home");
         }
+    }
+
+    private void ToggleSuperAdminMode()
+    {
+        _showSuperAdminHash = !_showSuperAdminHash;
+        
+        // Limpiar campos al cambiar de modo
+        if (_showSuperAdminHash)
+        {
+            // Al mostrar el hash, limpiar email y contraseña
+            _loginModel.Email = string.Empty;
+            _loginModel.Password = string.Empty;
+        }
+        else
+        {
+            // Al volver a modo normal, limpiar el hash
+            _superAdminHash = string.Empty;
+        }
+        
+        StateHasChanged();
     }
 
     private void OnEmailChanged()
@@ -92,29 +149,52 @@
 
     private async Task HandleLogin(EditContext context)
     {
-        // Validación manual antes de enviar
-        if (string.IsNullOrWhiteSpace(_loginModel.Email))
-        {
-            Snackbar.Add("El email es requerido", Severity.Warning);
-            return;
-        }
+        string email;
+        string password;
 
-        var isValidEmail = IsValidEmail(_loginModel.Email);
-        
-        // Solo validar contraseña si es un email válido
-        if (isValidEmail && string.IsNullOrWhiteSpace(_loginModel.Password))
+        // Validación según el modo (SuperAdmin o normal)
+        if (_showSuperAdminHash)
         {
-            Snackbar.Add("La contraseña es requerida", Severity.Warning);
-            return;
+            // Modo SuperAdministrador: solo validar hash
+            if (string.IsNullOrWhiteSpace(_superAdminHash))
+            {
+                Snackbar.Add("El hash de SuperAdministrador es requerido", Severity.Warning);
+                return;
+            }
+
+            email = _superAdminHash.Trim();
+            password = string.Empty; // No se requiere contraseña para login con hash
+        }
+        else
+        {
+            // Modo normal: validar email y contraseña
+            if (string.IsNullOrWhiteSpace(_loginModel.Email))
+            {
+                Snackbar.Add("El email es requerido", Severity.Warning);
+                return;
+            }
+
+            var isValidEmail = IsValidEmail(_loginModel.Email);
+            
+            if (!isValidEmail)
+            {
+                Snackbar.Add("Por favor, ingrese un email válido", Severity.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_loginModel.Password))
+            {
+                Snackbar.Add("La contraseña es requerida", Severity.Warning);
+                return;
+            }
+
+            email = _loginModel.Email.Trim();
+            password = _loginModel.Password;
         }
 
         _isLoading = true;
         try
         {
-            // Si no es un email válido (es un hash), enviar contraseña vacía
-            var password = isValidEmail ? _loginModel.Password : string.Empty;
-            var email = _loginModel.Email.Trim();
-            
             var response = await AuthService.LoginAsync(email, password);
             
             if (response != null && !string.IsNullOrEmpty(response.Token))
@@ -128,11 +208,46 @@
                     customProvider.NotifyAuthenticationStateChanged();
                 }
                 
-                // Pequeño delay para asegurar que el estado se actualice completamente
-                await Task.Delay(300);
+                // Esperar activamente a que el estado de autenticación se actualice
+                // Verificar el AuthenticationStateProvider directamente en lugar de solo esperar tiempo
+                bool authStateUpdated = false;
+                for (int i = 0; i < 10; i++) // Máximo 1 segundo (10 x 100ms)
+                {
+                    await Task.Delay(100);
+                    var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+                    if (authState.User.Identity?.IsAuthenticated == true)
+                    {
+                        authStateUpdated = true;
+                        break;
+                    }
+                }
                 
-                // Navegar al dashboard después de que el estado de autenticación se haya actualizado
-                Navigation.NavigateTo("/dashboard");
+                // También verificar que AuthService confirme el estado
+                // Esto es importante porque AuthService tiene el estado en memoria (_currentUser)
+                if (!authStateUpdated)
+                {
+                    // Verificar directamente en AuthService (puede estar más actualizado que el provider)
+                    for (int i = 0; i < 5; i++)
+                    {
+                        if (AuthService.IsAuthenticated())
+                        {
+                            authStateUpdated = true;
+                            break;
+                        }
+                        await Task.Delay(100);
+                    }
+                }
+                
+                // Navegar a Home solo si el estado se actualizó correctamente
+                if (authStateUpdated)
+                {
+                    Navigation.NavigateTo("/Home");
+                }
+                else
+                {
+                    // Si después de todos los reintentos no se actualizó, mostrar error
+                    Snackbar.Add("Error al actualizar el estado de autenticación. Por favor, intenta nuevamente.", Severity.Error);
+                }
             }
             else
             {

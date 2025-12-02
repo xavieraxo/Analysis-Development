@@ -1,0 +1,52 @@
+@page "/admin/dashboard-by-users"
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Dashboard por Usuarios - Multi-Agent System</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <div style="display: flex; justify-content: center; align-items: center; min-height: 60vh; text-align: center; padding: 2rem;">
+        <MudText Typo="Typo.h4" Style="font-size: 1.8rem;">
+            Dashboard por Usuarios
+        </MudText>
+    </div>
+</MudContainer>
+
+@code {
+    private bool _isAuthenticated = false;
+    private bool _isAdminOrSuperUser = false;
+
+    protected override void OnInitialized()
+    {
+        try
+        {
+            // Verificar autenticación y permisos
+            // Esta página es solo para Admin y SuperUsuario
+            _isAuthenticated = AuthService.IsAuthenticated();
+            
+            if (_isAuthenticated)
+            {
+                var role = AuthService.GetUserRole();
+                _isAdminOrSuperUser = role == "Admin" || role == "SuperUsuario";
+            }
+            
+            // Si no está autenticado, redirigir al login
+            if (!_isAuthenticated)
+            {
+                Navigation.NavigateTo("/login");
+            }
+            // Si está autenticado pero no tiene permisos, redirigir al home
+            else if (!_isAdminOrSuperUser)
+            {
+                Navigation.NavigateTo("/Home");
+            }
+        }
+        catch (Exception ex)
+        {
+            // En caso de error, redirigir al login
+            Console.WriteLine($"Error al verificar permisos en DashboardByUsers: {ex.Message}");
+            Navigation.NavigateTo("/login");
+        }
+    }
+}
+

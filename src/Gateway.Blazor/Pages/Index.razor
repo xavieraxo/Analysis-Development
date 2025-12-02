@@ -1,75 +1,25 @@
 ﻿@page "/"
+@layout SimpleLayout
 @inject NavigationManager Navigation
-@inject IAuthService AuthService
-
 <PageTitle>Inicio - Multi-Agent System</PageTitle>
 
-<div style="display: flex; justify-content: center; align-items: center; min-height: 60vh; padding: 2rem;">
-    <MudPaper Elevation="3" Class="pa-8" Style="max-width: 600px; width: 100%;">
-        <MudText Typo="Typo.h3" Align="Align.Center" GutterBottom="true">
-            Multi-Agent System
-        </MudText>
-        
-        <MudText Typo="Typo.body1" Align="Align.Center" Class="mt-6 mb-6" Style="font-size: 1.1rem; line-height: 1.8;">
-            Sistema multi-agente para análisis y desarrollo de proyectos. 
-            Colabora con agentes especializados para transformar tus ideas en realidad.
-        </MudText>
-        
-        <div style="text-align: center; margin-top: 2rem;">
-            @if (_isAuthenticated)
-            {
-                <MudButton Variant="Variant.Filled" 
-                          Color="Color.Primary" 
-                          Size="Size.Large"
-                          OnClick="NavigateToDashboard">
-                    Ir al Dashboard
-                </MudButton>
-            }
-            else
-            {
-                <MudButton Variant="Variant.Filled" 
-                          Color="Color.Primary" 
-                          Size="Size.Large"
-                          OnClick="NavigateToLogin">
-                    Iniciar Sesión
-                </MudButton>
-            }
-        </div>
-    </MudPaper>
-</div>
-
-@code {
-    private bool _isAuthenticated = false;
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            // Verificar si el usuario está autenticado
-            _isAuthenticated = AuthService.IsAuthenticated();
-            
-            // Si está autenticado, redirigir al dashboard automáticamente después de un breve delay
-            if (_isAuthenticated)
-            {
-                await Task.Delay(1500);
-                Navigation.NavigateTo("/dashboard");
-            }
-        }
-        catch (Exception ex)
-        {
-            // Si hay un error, simplemente asumir que no está autenticado
-            _isAuthenticated = false;
-            Console.WriteLine($"Error al verificar autenticación en Index: {ex.Message}");
-        }
-    }
-
-    private void NavigateToLogin()
-    {
-        Navigation.NavigateTo("/login");
-    }
+<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 60vh; padding: 2rem;">
+    <!-- Frase superior temporal -->
+    <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-6" Style="font-style: italic; color: rgba(0,0,0,0.6);">
+        todo lo bueno está por venir
+    </MudText>
     
-    private void NavigateToDashboard()
-    {
-        Navigation.NavigateTo("/dashboard");
-    }
-}
+    <!-- Botón de Login centrado -->
+   @*  <MudButton Variant="Variant.Filled" 
+              Color="Color.Primary" 
+              Size="Size.Large"
+               Href="/login"
+              Style="min-width: 200px;">
+        Iniciar Sesión
+    </MudButton> *@
+    <MudButton Color="Color.Primary"
+               Variant="Variant.Filled"
+               OnClick="@(() => Navigation.NavigateTo("/login"))">
+        Iniciar Sesión
+    </MudButton>
+</div>

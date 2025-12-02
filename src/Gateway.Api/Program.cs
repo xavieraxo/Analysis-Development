@@ -155,13 +155,14 @@ using (var scope = app.Services.CreateScope())
     // En producción, usar migraciones de EF Core
     if (app.Environment.IsDevelopment())
     {
-        db.Database.EnsureDeleted(); // Eliminar base de datos existente
+        //db.Database.EnsureDeleted(); // Eliminar base de datos existente
     }
     db.Database.EnsureCreated(); // Crear base de datos con el esquema actualizado
 }
 
-app.UseDefaultFiles();
-app.UseStaticFiles();
+// NOTA: UseDefaultFiles() y UseStaticFiles() fueron eliminados porque Gateway.Api es solo una API REST.
+// El frontend ahora está en Gateway.Blazor (proyecto separado).
+// Si se necesita servir archivos estáticos (p.ej. para Swagger), se pueden agregar de forma condicional.
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>
@@ -173,6 +174,24 @@ app.UseSwaggerUI(options =>
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// ========== ENDPOINT RAÍZ ==========
+// Endpoint informativo para la raíz - indica que es una API REST
+app.MapGet("/", () => Results.Json(new 
+{ 
+    message = "Multi-Agent Gateway API",
+    version = "v1",
+    documentation = "/swagger",
+    endpoints = new
+    {
+        auth = "/api/auth/login",
+        projects = "/api/projects",
+        chat = "/api/chat/run",
+        configurations = "/api/configurations"
+    }
+}))
+.WithName("Root")
+.Produces(StatusCodes.Status200OK);
 
 // ========== ENDPOINTS PÚBLICOS ==========
 
@@ -196,7 +215,7 @@ app.MapPost("/api/auth/register", async (IAuthService authService, RegisterReque
     var result = await authService.RegisterAsync(request);
     if (result == null)
     {
-        return Results.BadRequest(new { message = "El email ya está registrado" });
+        return Results.BadRequest(new { message = "El email ya existe en la base de datos. Por favor, usa otro email o inicia sesión." });
     }
     return Results.Ok(result);
 })

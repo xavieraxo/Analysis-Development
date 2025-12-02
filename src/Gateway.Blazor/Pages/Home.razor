@@ -1,0 +1,43 @@
+@page "/Home"
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Home - Multi-Agent System</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <div style="display: flex; justify-content: center; align-items: center; min-height: 60vh; text-align: center; padding: 2rem;">
+        <MudText Typo="Typo.h4" Style="font-size: 1.8rem; line-height: 1.6;">
+            el presente es el futuro y el pasado lo que acabo de hacer
+        </MudText>
+    </div>
+</MudContainer>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Esperar un momento para que el estado de autenticación se actualice
+        // Esto es crítico después de un login reciente
+        await Task.Delay(200);
+        
+        // Verificar autenticación de forma asíncrona
+        // Reintentar hasta 3 veces si falla (por timing issues después del login)
+        bool isAuthenticated = false;
+        for (int i = 0; i < 3; i++)
+        {
+            isAuthenticated = AuthService.IsAuthenticated();
+            if (isAuthenticated)
+                break;
+                
+            // Esperar un poco más antes de reintentar
+            if (i < 2)
+                await Task.Delay(100);
+        }
+        
+        // Solo redirigir si realmente no está autenticado después de los reintentos
+        if (!isAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+}
+

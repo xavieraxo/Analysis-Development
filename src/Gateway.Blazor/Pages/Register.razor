@@ -1,0 +1,259 @@
+@page "/register"
+@inject HttpClient HttpClient
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@layout SimpleLayout
+
+<PageTitle>Registro - Multi-Agent System</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">Registro de Usuario</MudText>
+        
+        <EditForm Model="@_registerModel" OnValidSubmit="HandleRegister">
+            <DataAnnotationsValidator />
+            
+            <MudTextField @bind-Value="_registerModel.Email" 
+                         Label="Email" 
+                         Variant="Variant.Outlined" 
+                         FullWidth="true" 
+                         Class="mt-4"
+                         Required="true"
+                         InputType="InputType.Email"
+                         HelperText="Ingresa un email válido" />
+            
+            <MudTextField @bind-Value="_registerModel.Name" 
+                         Label="Nombre Completo" 
+                         Variant="Variant.Outlined" 
+                         FullWidth="true" 
+                         Class="mt-4"
+                         Required="true" />
+            
+            <MudTextField @bind-Value="_registerModel.Password" 
+                         Label="Contraseña" 
+                         Variant="Variant.Outlined" 
+                         InputType="InputType.Password" 
+                         FullWidth="true" 
+                         Class="mt-4"
+                         Required="true"
+                         HelperText="@_passwordHelperText" />
+            
+            <MudTextField @bind-Value="_confirmPassword" 
+                         Label="Confirmar Contraseña" 
+                         Variant="Variant.Outlined" 
+                         InputType="InputType.Password" 
+                         FullWidth="true" 
+                         Class="mt-4"
+                         Required="true" />
+            
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-4">
+                    @_errorMessage
+                </MudAlert>
+            }
+            
+            <MudButton ButtonType="ButtonType.Submit" 
+                      Variant="Variant.Filled" 
+                      Color="Color.Primary" 
+                      FullWidth="true" 
+                      Class="mt-4"
+                      Disabled="@_isLoading">
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Registrando...</MudText>
+                }
+                else
+                {
+                    <MudText>Registrarse</MudText>
+                }
+            </MudButton>
+        </EditForm>
+        
+        <MudDivider Class="my-4" />
+        
+        <MudText Align="Align.Center">
+            <MudLink Href="/login">¿Ya tienes cuenta? Inicia sesión</MudLink>
+        </MudText>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private RegisterRequest _registerModel = new();
+    private string _confirmPassword = string.Empty;
+    private bool _isLoading = false;
+    private string _errorMessage = string.Empty;
+    private readonly string _passwordHelperText = "Mínimo 8 caracteres, máximo 32. Debe incluir mayúsculas, números y caracteres especiales (: ; _ - # @)";
+
+    protected override void OnInitialized()
+    {
+        // Register es una página pública, no debe redirigir si no está autenticado
+        // Este método está vacío intencionalmente para evitar redirecciones automáticas
+        // que podrían causar el "parpadeo" al intentar navegar a /register
+    }
+
+    public class RegisterRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private async Task HandleRegister(EditContext context)
+    {
+        if (!context.Validate())
+        {
+            return;
+        }
+
+        // Validar que las contraseñas coincidan
+        if (_registerModel.Password != _confirmPassword)
+        {
+            _errorMessage = "Las contraseñas no coinciden";
+            Snackbar.Add("Las contraseñas no coinciden", Severity.Error);
+            return;
+        }
+
+        // Validar formato de email
+        if (!IsValidEmail(_registerModel.Email))
+        {
+            _errorMessage = "El formato del email no es válido";
+            Snackbar.Add("El formato del email no es válido", Severity.Error);
+            return;
+        }
+
+        // Validar longitud de contraseña (mínimo 8, máximo 32)
+        if (_registerModel.Password.Length < 8)
+        {
+            _errorMessage = "La contraseña debe tener al menos 8 caracteres";
+            Snackbar.Add("La contraseña debe tener al menos 8 caracteres", Severity.Error);
+            return;
+        }
+
+        if (_registerModel.Password.Length > 32)
+        {
+            _errorMessage = "La contraseña no puede tener más de 32 caracteres";
+            Snackbar.Add("La contraseña no puede tener más de 32 caracteres", Severity.Error);
+            return;
+        }
+
+        // Validar seguridad de contraseña: mayúsculas, números y caracteres especiales permitidos
+        if (!IsPasswordSecure(_registerModel.Password))
+        {
+            _errorMessage = "La contraseña debe incluir letras mayúsculas, números y caracteres especiales (: ; _ - # @)";
+            Snackbar.Add("La contraseña debe incluir letras mayúsculas, números y caracteres especiales (: ; _ - # @)", Severity.Error);
+            return;
+        }
+
+        _isLoading = true;
+        _errorMessage = string.Empty;
+
+        try
+        {
+            // El registro público siempre crea usuarios con rol Final (0)
+            var registerRequest = new
+            {
+                email = _registerModel.Email.Trim().ToLowerInvariant(),
+                password = _registerModel.Password,
+                name = _registerModel.Name.Trim(),
+                role = 0 // Rol Final para registro público
+            };
+
+            // Usar HttpClient directamente para manejar BadRequest y extraer el mensaje de error
+            var json = System.Text.Json.JsonSerializer.Serialize(registerRequest);
+            var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            
+            // HttpClient ya tiene BaseAddress configurado, usar endpoint relativo
+            var response = await HttpClient.PostAsync("/api/auth/register", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Registro exitoso. Ahora puedes iniciar sesión.", Severity.Success);
+                await Task.Delay(1000); // Pequeño delay para que se vea el mensaje
+                Navigation.NavigateTo("/login");
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            {
+                // Intentar extraer el mensaje de error del cuerpo de la respuesta
+                var errorContent = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    var errorJson = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(errorContent);
+                    if (errorJson.TryGetProperty("message", out var messageProperty))
+                    {
+                        _errorMessage = messageProperty.GetString() ?? "El email ya existe en la base de datos. Por favor, usa otro email o inicia sesión.";
+                    }
+                    else
+                    {
+                        _errorMessage = "El email ya existe en la base de datos. Por favor, usa otro email o inicia sesión.";
+                    }
+                }
+                catch
+                {
+                    _errorMessage = "El email ya existe en la base de datos. Por favor, usa otro email o inicia sesión.";
+                }
+                Snackbar.Add(_errorMessage, Severity.Error);
+            }
+            else
+            {
+                _errorMessage = "Error al registrarse. Por favor, intenta de nuevo más tarde.";
+                Snackbar.Add(_errorMessage, Severity.Error);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _errorMessage = "Error de conexión. Verifica que el servidor esté ejecutándose.";
+            Snackbar.Add(_errorMessage, Severity.Error);
+            Console.WriteLine($"Register error: {ex}");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error al registrarse: {ex.Message}";
+            Snackbar.Add(_errorMessage, Severity.Error);
+            Console.WriteLine($"Register error: {ex}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Valida que la contraseña sea segura:
+    /// - Debe incluir al menos una letra mayúscula
+    /// - Debe incluir al menos un número
+    /// - Debe incluir al menos un carácter especial permitido: : ; _ - # @
+    /// </summary>
+    private static bool IsPasswordSecure(string password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+            return false;
+
+        bool hasUpperCase = password.Any(char.IsUpper);
+        bool hasNumber = password.Any(char.IsDigit);
+        
+        // Caracteres especiales permitidos: : ; _ - # @
+        char[] allowedSpecialChars = { ':', ';', '_', '-', '#', '@' };
+        bool hasSpecialChar = password.Any(c => allowedSpecialChars.Contains(c));
+
+        return hasUpperCase && hasNumber && hasSpecialChar;
+    }
+}
+

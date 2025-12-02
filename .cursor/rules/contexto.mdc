@@ -1,0 +1,4 @@
+---
+alwaysApply: true
+---
+Refresh your context to retain only essential and current information from the conversation. Remove any repeated, redundant, or irrelevant information from previous interactions. Prioritize new content, current logic, and the user's immediate goal. Do not carry over old examples, explanations, or code unless they are explicitly necessary. Optimize each response to be accurate, brief, and functional based on the current status of the project.
