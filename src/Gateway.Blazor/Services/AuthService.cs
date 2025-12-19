@@ -144,7 +144,7 @@ public class AuthService : IAuthService
             Id = userElement.TryGetProperty("id", out var idElement) ? idElement.GetInt32() : 0,
             Email = userElement.TryGetProperty("email", out var emailElement) ? emailElement.GetString() ?? string.Empty : string.Empty,
             Name = userElement.TryGetProperty("name", out var nameElement) ? nameElement.GetString() ?? string.Empty : string.Empty,
-            Role = userElement.TryGetProperty("role", out var roleElement) ? roleElement.GetString() ?? string.Empty : string.Empty
+            Role = userElement.TryGetProperty("role", out var roleElement) ? GetRoleAsString(roleElement) : string.Empty
         };
         
         var loginResponse = new LoginResponse
@@ -161,6 +161,30 @@ public class AuthService : IAuthService
         await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "loginTimestamp", loginTimestamp.ToString());
 
         return loginResponse;
+    }
+    
+    private static string GetRoleAsString(System.Text.Json.JsonElement roleElement)
+    {
+        // El backend puede enviar el role como número (enum) o como string
+        if (roleElement.ValueKind == System.Text.Json.JsonValueKind.Number)
+        {
+            // Convertir número a nombre del enum (UserRole en backend)
+            // 0=Final, 1=Empresa, 2=Admin, 3=SuperUsuario
+            var roleNumber = roleElement.GetInt32();
+            return roleNumber switch
+            {
+                0 => "Final",
+                1 => "Empresa",
+                2 => "Admin",
+                3 => "SuperUsuario",
+                _ => "Final" // Default
+            };
+        }
+        else if (roleElement.ValueKind == System.Text.Json.JsonValueKind.String)
+        {
+            return roleElement.GetString() ?? "Final";
+        }
+        return "Final";
     }
 
     public async Task<bool> LogoutAsync()
