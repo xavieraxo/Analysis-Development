@@ -16,9 +16,12 @@
         {
             <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
                 <ActivatorContent>
-                    <MudButton StartIcon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" Variant="Variant.Text">
-                        @_userName
-                    </MudButton>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="cursor: pointer;">
+                        <MudAvatar Color="Color.Primary" Size="Size.Small" Style="width: 40px; height: 40px;">
+                            @GetUserInitials()
+                        </MudAvatar>
+                        <MudText Typo="Typo.body2" Style="color: white;">@_userName</MudText>
+                    </MudStack>
                 </ActivatorContent>
                 <ChildContent>
                     <MudMenuItem Disabled="true">
@@ -28,6 +31,9 @@
                         </div>
                     </MudMenuItem>
                     <MudDivider />
+                    <MudMenuItem Icon="@Icons.Material.Filled.Person" OnClick="NavigateToProfile">
+                        Ver Perfil
+                    </MudMenuItem>
                     <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="HandleLogout">
                         Cerrar Sesión
                     </MudMenuItem>
@@ -98,6 +104,36 @@
             "SuperUsuario" => "Super Usuario",
             _ => role
         };
+    }
+
+    private string GetUserInitials()
+    {
+        if (string.IsNullOrWhiteSpace(_userName))
+            return "U";
+
+        var parts = _userName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+        {
+            // Iniciales de nombre y apellido
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+        }
+        else if (parts.Length == 1 && parts[0].Length >= 2)
+        {
+            // Primeras dos letras del nombre
+            return parts[0].Substring(0, 2).ToUpper();
+        }
+        else if (parts.Length == 1 && parts[0].Length == 1)
+        {
+            // Una sola letra
+            return parts[0].ToUpper();
+        }
+        
+        return "U";
+    }
+
+    private void NavigateToProfile()
+    {
+        Navigation.NavigateTo("/profile");
     }
 
     private async Task HandleLogout()
