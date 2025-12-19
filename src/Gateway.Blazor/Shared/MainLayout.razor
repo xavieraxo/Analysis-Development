@@ -1,4 +1,7 @@
 ﻿@inherits LayoutComponentBase
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 
 <MudThemeProvider />
 <MudDialogProvider />
@@ -8,6 +11,29 @@
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
         <MudText Typo="Typo.h6">Multi-Agent System</MudText>
+        <MudSpacer />
+        @if (_isAuthenticated)
+        {
+            <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                <ActivatorContent>
+                    <MudChip Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Primary" Variant="Variant.Text" Style="cursor: pointer;">
+                        @_userName
+                    </MudChip>
+                </ActivatorContent>
+                <ChildContent>
+                    <MudMenuItem Disabled="true">
+                        <div style="padding: 8px 16px;">
+                            <MudText Typo="Typo.body2" Style="font-weight: bold;">@_userName</MudText>
+                            <MudText Typo="Typo.caption" Style="color: rgba(0,0,0,0.6);">@_userRole</MudText>
+                        </div>
+                    </MudMenuItem>
+                    <MudDivider />
+                    <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="HandleLogout">
+                        Cerrar Sesión
+                    </MudMenuItem>
+                </ChildContent>
+            </MudMenu>
+        }
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
@@ -21,6 +47,72 @@
 
 @code {
     private bool _drawerOpen = true;
+    private bool _isAuthenticated = false;
+    private string _userName = string.Empty;
+    private string _userRole = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInfo();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Recargar información del usuario después del primer render
+            await Task.Delay(200); // Esperar a que JS Interop esté listo
+            await LoadUserInfo();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadUserInfo()
+    {
+        try
+        {
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+            if (_isAuthenticated)
+            {
+                var user = AuthService.GetUser();
+                if (user != null)
+                {
+                    _userName = user.Name ?? "Usuario";
+                    _userRole = GetRoleDisplayName(user.Role ?? "Final");
+                }
+            }
+        }
+        catch
+        {
+            _isAuthenticated = false;
+        }
+    }
+
+    private string GetRoleDisplayName(string role)
+    {
+        return role switch
+        {
+            "Admin" => "Administrador",
+            "Final" => "Usuario Final",
+            "Empresa" => "Usuario Empresa",
+            "SuperUsuario" => "Super Usuario",
+            _ => role
+        };
+    }
+
+    private async Task HandleLogout()
+    {
+        try
+        {
+            await AuthService.LogoutAsync();
+            Snackbar.Add("Sesión cerrada correctamente", Severity.Success);
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cerrar sesión: {ex.Message}", Severity.Error);
+        }
+    }
 
     private void ToggleDrawer()
     {
