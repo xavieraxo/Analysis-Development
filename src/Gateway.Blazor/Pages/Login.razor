@@ -181,6 +181,11 @@
 
             email = _superAdminHash.Trim();
             password = string.Empty; // No se requiere contraseña para login con hash
+            
+            Console.WriteLine($"🔐 Login SuperAdmin - Hash enviado: '{email}'");
+            Console.WriteLine($"🔐 Hash length: {email.Length}");
+            Console.WriteLine($"🔐 Hash esperado: 'A4F1C72E99B3842F7D1A5C0083F6D2B1'");
+            Console.WriteLine($"🔐 ¿Coincide? {email.Equals("A4F1C72E99B3842F7D1A5C0083F6D2B1", StringComparison.OrdinalIgnoreCase)}");
         }
         else
         {
@@ -207,12 +212,16 @@
 
             email = _loginModel.Email.Trim();
             password = _loginModel.Password;
+            
+            Console.WriteLine($"🔐 Login Normal - Email: '{email}'");
         }
 
         _isLoading = true;
         try
         {
+            Console.WriteLine($"📡 Enviando request de login...");
             var response = await AuthService.LoginAsync(email, password);
+            Console.WriteLine($"📡 Response recibido: {(response != null ? "OK" : "NULL")}");
             
             if (response != null && !string.IsNullOrEmpty(response.Token))
             {
