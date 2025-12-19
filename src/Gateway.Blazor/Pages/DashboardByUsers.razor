@@ -16,13 +16,13 @@
     private bool _isAuthenticated = false;
     private bool _isAdminOrSuperUser = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         try
         {
             // Verificar autenticación y permisos
             // Esta página es solo para Admin y SuperUsuario
-            _isAuthenticated = AuthService.IsAuthenticated();
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
             
             if (_isAuthenticated)
             {

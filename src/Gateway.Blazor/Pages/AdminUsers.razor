@@ -32,12 +32,12 @@
     private bool _isAuthenticated = false;
     private bool _isAdminOrSuperUser = false;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         try
         {
             // Verificar autenticación y permisos
-            _isAuthenticated = AuthService.IsAuthenticated();
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
             
             if (_isAuthenticated)
             {

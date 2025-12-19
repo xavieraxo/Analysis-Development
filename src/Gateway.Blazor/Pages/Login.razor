@@ -91,10 +91,10 @@
     private bool _showSuperAdminHash = false;
     private string _superAdminHash = string.Empty;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         // Si el usuario ya está autenticado, redirigir a Home
-        if (AuthService.IsAuthenticated())
+        if (await AuthService.IsAuthenticatedAsync())
         {
             Navigation.NavigateTo("/Home");
         }
@@ -229,7 +229,7 @@
                     // Verificar directamente en AuthService (puede estar más actualizado que el provider)
                     for (int i = 0; i < 5; i++)
                     {
-                        if (AuthService.IsAuthenticated())
+                        if (await AuthService.IsAuthenticatedAsync())
                         {
                             authStateUpdated = true;
                             break;
