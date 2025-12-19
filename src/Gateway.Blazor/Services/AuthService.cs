@@ -13,6 +13,9 @@ public class AuthService : IAuthService
     private readonly NavigationManager _navigationManager;
     private LoginResponse? _currentUser;
 
+    // Evento que notifica cambios en el estado de autenticación
+    public event Action? OnAuthStateChanged;
+
     public AuthService(HttpClient httpClient, IJSRuntime jsRuntime, NavigationManager navigationManager)
     {
         _httpClient = httpClient;
@@ -160,6 +163,10 @@ public class AuthService : IAuthService
             System.Text.Json.JsonSerializer.Serialize(loginResponse.User));
         await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "loginTimestamp", loginTimestamp.ToString());
 
+        // Notificar que el estado de autenticación cambió
+        Console.WriteLine("✅ AuthService - Notificando cambio de estado (login)");
+        OnAuthStateChanged?.Invoke();
+
         return loginResponse;
     }
     
@@ -193,6 +200,11 @@ public class AuthService : IAuthService
         await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "token");
         await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "user");
         await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "loginTimestamp");
+        
+        // Notificar que el estado de autenticación cambió
+        Console.WriteLine("✅ AuthService - Notificando cambio de estado (logout)");
+        OnAuthStateChanged?.Invoke();
+        
         _navigationManager.NavigateTo("/login");
         return true;
     }

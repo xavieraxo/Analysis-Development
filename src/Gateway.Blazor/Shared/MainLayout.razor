@@ -2,6 +2,7 @@
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@implements IDisposable
 
 <MudThemeProvider />
 <MudDialogProvider />
@@ -60,6 +61,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Suscribirse al evento de cambio de estado de autenticación
+        AuthService.OnAuthStateChanged += OnAuthStateChangedHandler;
+        Console.WriteLine("👂 MainLayout - Suscrito a OnAuthStateChanged");
+        
         await LoadUserInfo();
     }
 
@@ -72,6 +77,20 @@
             await LoadUserInfo();
             StateHasChanged();
         }
+    }
+
+    private async void OnAuthStateChangedHandler()
+    {
+        Console.WriteLine("🔔 MainLayout - Evento OnAuthStateChanged recibido, recargando usuario...");
+        await LoadUserInfo();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        // Desuscribirse del evento al destruir el componente
+        AuthService.OnAuthStateChanged -= OnAuthStateChangedHandler;
+        Console.WriteLine("👋 MainLayout - Desuscrito de OnAuthStateChanged");
     }
 
     private async Task LoadUserInfo()
