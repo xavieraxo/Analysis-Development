@@ -106,6 +106,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Resetear el estado del toggle SuperAdmin
+        _showSuperAdminHash = false;
+        _superAdminHash = string.Empty;
+        _loginModel = new LoginRequest();
+        
+        Console.WriteLine("🔄 Login.OnInitializedAsync - Estado reseteado");
+        
         // Si el usuario ya está autenticado, redirigir a Home
         if (await AuthService.IsAuthenticatedAsync())
         {
