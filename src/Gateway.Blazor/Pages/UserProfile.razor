@@ -156,24 +156,32 @@
 
     private string GetUserInitials()
     {
-        if (string.IsNullOrWhiteSpace(_userName))
-            return "U";
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_userName))
+                return "U";
 
-        var parts = _userName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length >= 2)
-        {
-            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+            var parts = _userName.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            
+            if (parts.Length >= 2 && parts[0].Length > 0 && parts[1].Length > 0)
+            {
+                return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+            }
+            else if (parts.Length == 1 && parts[0].Length >= 2)
+            {
+                return parts[0].Substring(0, 2).ToUpper();
+            }
+            else if (parts.Length == 1 && parts[0].Length == 1)
+            {
+                return parts[0].ToUpper();
+            }
+            
+            return "U";
         }
-        else if (parts.Length == 1 && parts[0].Length >= 2)
+        catch
         {
-            return parts[0].Substring(0, 2).ToUpper();
+            return "U";
         }
-        else if (parts.Length == 1 && parts[0].Length == 1)
-        {
-            return parts[0].ToUpper();
-        }
-        
-        return "U";
     }
 
     private void NavigateToLogin()

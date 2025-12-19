@@ -85,11 +85,17 @@
                 {
                     _userName = user.Name ?? "Usuario";
                     _userRole = GetRoleDisplayName(user.Role ?? "Final");
+                    Console.WriteLine($"👤 MainLayout - Usuario cargado: {_userName}, Rol: {_userRole}");
+                }
+                else
+                {
+                    Console.WriteLine("⚠️ MainLayout - Usuario es null pero isAuthenticated=true");
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"❌ MainLayout - Error al cargar usuario: {ex.Message}");
             _isAuthenticated = false;
         }
     }
@@ -108,27 +114,46 @@
 
     private string GetUserInitials()
     {
-        if (string.IsNullOrWhiteSpace(_userName))
-            return "U";
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_userName))
+            {
+                Console.WriteLine("⚠️ GetUserInitials - userName está vacío, usando 'U'");
+                return "U";
+            }
 
-        var parts = _userName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length >= 2)
-        {
-            // Iniciales de nombre y apellido
-            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+            var parts = _userName.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            
+            if (parts.Length >= 2 && parts[0].Length > 0 && parts[1].Length > 0)
+            {
+                // Iniciales de nombre y apellido
+                var initials = $"{parts[0][0]}{parts[1][0]}".ToUpper();
+                Console.WriteLine($"👤 GetUserInitials - '{_userName}' -> '{initials}' (nombre y apellido)");
+                return initials;
+            }
+            else if (parts.Length == 1 && parts[0].Length >= 2)
+            {
+                // Primeras dos letras del nombre
+                var initials = parts[0].Substring(0, 2).ToUpper();
+                Console.WriteLine($"👤 GetUserInitials - '{_userName}' -> '{initials}' (dos letras)");
+                return initials;
+            }
+            else if (parts.Length == 1 && parts[0].Length == 1)
+            {
+                // Una sola letra
+                var initials = parts[0].ToUpper();
+                Console.WriteLine($"👤 GetUserInitials - '{_userName}' -> '{initials}' (una letra)");
+                return initials;
+            }
+            
+            Console.WriteLine($"⚠️ GetUserInitials - '{_userName}' no coincide con ningún patrón, usando 'U'");
+            return "U";
         }
-        else if (parts.Length == 1 && parts[0].Length >= 2)
+        catch (Exception ex)
         {
-            // Primeras dos letras del nombre
-            return parts[0].Substring(0, 2).ToUpper();
+            Console.WriteLine($"❌ GetUserInitials - Error: {ex.Message}, usando 'U'");
+            return "U";
         }
-        else if (parts.Length == 1 && parts[0].Length == 1)
-        {
-            // Una sola letra
-            return parts[0].ToUpper();
-        }
-        
-        return "U";
     }
 
     private void NavigateToProfile()
