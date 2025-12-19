@@ -6,7 +6,34 @@
 
 <MudContainer MaxWidth="MaxWidth.Small" Class="mt-16">
     <MudPaper Elevation="3" Class="pa-8">
-        <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">Iniciar Sesión</MudText>
+        <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">
+            @if (_showSuperAdminHash)
+            {
+                <text>SuperAdministrador</text>
+            }
+            else
+            {
+                <text>Iniciar Sesión</text>
+            }
+        </MudText>
+        
+        <!-- Enlace para mostrar/ocultar modo SuperAdministrador - MOVIDO FUERA DEL FORM -->
+        <div class="mb-3" style="text-align: center;">
+            <MudButton Variant="Variant.Text" 
+                      Color="Color.Primary" 
+                      Size="Size.Small"
+                      OnClick="@(() => ToggleSuperAdminMode())" 
+                      Style="text-transform: none;">
+                @if (_showSuperAdminHash)
+                {
+                    <text>← Volver a login normal</text>
+                }
+                else
+                {
+                    <text>¿Eres SuperAdministrador?</text>
+                }
+            </MudButton>
+        </div>
         
         <EditForm Model="@_loginModel" OnSubmit="HandleLogin">
             
@@ -44,24 +71,6 @@
                              FullWidth="true" 
                              Class="mt-4" />
             }
-            
-            <!-- Enlace para mostrar/ocultar modo SuperAdministrador -->
-            <div class="mt-3" style="text-align: right;">
-                <MudButton Variant="Variant.Text" 
-                          Color="Color.Primary" 
-                          Size="Size.Small"
-                          OnClick="ToggleSuperAdminMode" 
-                          Style="text-transform: none; padding: 4px 8px;">
-                    @if (_showSuperAdminHash)
-                    {
-                        <text>← Volver a login normal</text>
-                    }
-                    else
-                    {
-                        <text>¿Eres SuperAdministrador?</text>
-                    }
-                </MudButton>
-            </div>
             
             <MudButton ButtonType="ButtonType.Submit" 
                       Variant="Variant.Filled" 
@@ -106,7 +115,9 @@
 
     private void ToggleSuperAdminMode()
     {
+        Console.WriteLine($"🔄 Toggle SuperAdmin Mode - Antes: {_showSuperAdminHash}");
         _showSuperAdminHash = !_showSuperAdminHash;
+        Console.WriteLine($"🔄 Toggle SuperAdmin Mode - Después: {_showSuperAdminHash}");
         
         // Limpiar campos al cambiar de modo
         if (_showSuperAdminHash)
@@ -114,11 +125,13 @@
             // Al mostrar el hash, limpiar email y contraseña
             _loginModel.Email = string.Empty;
             _loginModel.Password = string.Empty;
+            Console.WriteLine("✅ Modo SuperAdmin activado - Campos de login limpiados");
         }
         else
         {
             // Al volver a modo normal, limpiar el hash
             _superAdminHash = string.Empty;
+            Console.WriteLine("✅ Modo login normal activado - Hash limpiado");
         }
         
         StateHasChanged();
@@ -203,7 +216,8 @@
             
             if (response != null && !string.IsNullOrEmpty(response.Token))
             {
-                Snackbar.Add("Sesión iniciada correctamente", Severity.Success);
+                var userName = response.User?.Name ?? "Usuario";
+                Snackbar.Add($"¡Bienvenido {userName}!", Severity.Success);
                 
                 // Notificar al AuthenticationStateProvider que el estado ha cambiado
                 // Esto permite que Blazor reconozca inmediatamente que el usuario está autenticado
@@ -255,16 +269,28 @@
             }
             else
             {
-                Snackbar.Add("El usuario o la contraseña no coinciden", Severity.Error);
+                Snackbar.Add("❌ Credenciales inválidas. Usuario o contraseña incorrectos.", Severity.Error);
             }
         }
         catch (UnauthorizedAccessException)
         {
-            Snackbar.Add("El usuario o la contraseña no coinciden", Severity.Error);
+            if (_showSuperAdminHash)
+            {
+                Snackbar.Add("❌ Hash de SuperAdministrador incorrecto", Severity.Error);
+            }
+            else
+            {
+                Snackbar.Add("❌ El usuario no existe o la contraseña es incorrecta", Severity.Error);
+            }
+        }
+        catch (HttpRequestException httpEx)
+        {
+            Console.WriteLine($"Login HTTP error: {httpEx}");
+            Snackbar.Add("⚠️ No se puede conectar con el servidor. Verifica que la API esté ejecutándose.", Severity.Warning);
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Error al iniciar sesión: {ex.Message}", Severity.Error);
+            Snackbar.Add($"❌ Error al iniciar sesión: {ex.Message}", Severity.Error);
             // Log del error completo para debugging
             Console.WriteLine($"Login error: {ex}");
         }
