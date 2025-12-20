@@ -33,21 +33,29 @@ public class AuthServiceIdentity : IAuthService
 
     public async Task<LoginResponse?> LoginAsync(LoginRequest request)
     {
-        // Validación de entrada
-        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        // Validación de entrada - Email siempre requerido
+        if (string.IsNullOrWhiteSpace(request.Email))
         {
-            _logger.LogWarning("Intento de login con credenciales vacías");
+            _logger.LogWarning("Intento de login sin email");
             return null;
         }
 
         var superUserHash = _configuration["SuperUser:Hash"] ?? string.Empty;
         var emailTrimmed = request.Email.Trim();
         
-        // Verificar si es superusuario con hash
+        // Verificar si es superusuario con hash (no requiere contraseña)
         if (!string.IsNullOrEmpty(superUserHash) && 
             emailTrimmed.Equals(superUserHash, StringComparison.OrdinalIgnoreCase))
         {
+            _logger.LogInformation("Intento de login de SuperUsuario detectado con hash");
             return await HandleSuperUserLoginAsync(request.Password);
+        }
+
+        // Login normal requiere contraseña
+        if (string.IsNullOrWhiteSpace(request.Password))
+        {
+            _logger.LogWarning("Intento de login sin contraseña");
+            return null;
         }
 
         // Login normal con Identity
