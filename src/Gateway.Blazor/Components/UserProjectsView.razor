@@ -74,7 +74,7 @@
             CloseButton = true, 
             MaxWidth = MaxWidth.Small, 
             FullWidth = true,
-            DisableBackdropClick = true // Evitar cerrar al hacer clic fuera
+            BackdropClick = false // Evitar cerrar al hacer clic fuera
         };
         
         var dialog = await DialogService.ShowAsync<CreateProjectDialog>("", options);

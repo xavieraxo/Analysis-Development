@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.Authorization;
 using MudBlazor.Services;
 using Gateway.Blazor.Services;
-using Gateway.Blazor.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
