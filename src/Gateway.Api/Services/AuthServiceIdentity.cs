@@ -95,7 +95,7 @@ public class AuthServiceIdentity : IAuthService
 
         if (superUser == null)
         {
-            // Crear superusuario si no existe
+            // Crear superusuario si no existe con contraseña por defecto
             superUser = new ApplicationUser
             {
                 UserName = "superuser@system.local",
@@ -106,17 +106,23 @@ public class AuthServiceIdentity : IAuthService
                 EmailConfirmed = true
             };
 
-            var createResult = await _userManager.CreateAsync(superUser, password);
+            // Usar contraseña por defecto si no se proporciona
+            var defaultPassword = string.IsNullOrEmpty(password) ? "SuperUser123@" : password;
+            var createResult = await _userManager.CreateAsync(superUser, defaultPassword);
             if (!createResult.Succeeded)
             {
                 _logger.LogError($"Error al crear superusuario: {string.Join(", ", createResult.Errors.Select(e => e.Description))}");
                 return null;
             }
+            
+            _logger.LogInformation("SuperUsuario creado exitosamente con Identity");
         }
 
+        // SuperUsuario se autentica solo con el hash, sin validar contraseña
         superUser.LastLoginAt = DateTime.UtcNow;
         await _userManager.UpdateAsync(superUser);
 
+        _logger.LogInformation($"Login exitoso de SuperUsuario con hash");
         var token = GenerateJwtToken(superUser);
         return new LoginResponse(token, MapToDto(superUser));
     }
