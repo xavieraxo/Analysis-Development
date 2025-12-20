@@ -189,10 +189,75 @@
         Navigation.NavigateTo("/login");
     }
 
-    private void ShowChangePasswordDialog()
+    private async Task ShowChangePasswordDialog()
     {
-        Snackbar.Add("Funcionalidad de cambio de contraseña próximamente", Severity.Info);
-        // TODO: Implementar diálogo de cambio de contraseña
+        Console.WriteLine("[UserProfile] Abriendo diálogo de cambio de contraseña...");
+        
+        var options = new DialogOptions 
+        { 
+            CloseButton = true, 
+            MaxWidth = MaxWidth.Small, 
+            FullWidth = true,
+            DisableBackdropClick = true
+        };
+        
+        var dialog = await DialogService.ShowAsync<ChangePasswordDialog>("", options);
+        var result = await dialog.Result;
+
+        Console.WriteLine($"[UserProfile] Resultado del diálogo: Canceled={result.Canceled}");
+
+        if (result.Canceled)
+        {
+            Console.WriteLine("[UserProfile] Usuario canceló el cambio de contraseña");
+            return;
+        }
+
+        if (result.Data is ChangePasswordDialog.ChangePasswordData data && data != null)
+        {
+            Console.WriteLine("[UserProfile] Datos recibidos, llamando al API...");
+            
+            try
+            {
+                var request = new
+                {
+                    currentPassword = data.CurrentPassword,
+                    newPassword = data.NewPassword
+                };
+
+                var response = await ApiService.PostAsync<object>("/api/auth/change-password", request);
+                
+                Console.WriteLine("[UserProfile] Contraseña cambiada exitosamente");
+                Snackbar.Add("✅ Contraseña cambiada exitosamente", Severity.Success);
+                
+                // Opcional: Cerrar sesión automáticamente para que vuelva a iniciar sesión con la nueva contraseña
+                await Task.Delay(2000);
+                await HandleLogout();
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"[UserProfile] ERROR al cambiar contraseña: {ex.Message}");
+                
+                // Intentar extraer el mensaje de error del servidor
+                if (ex.Message.Contains("Contraseña actual incorrecta") || ex.Message.Contains("400"))
+                {
+                    Snackbar.Add("❌ La contraseña actual es incorrecta", Severity.Error);
+                }
+                else
+                {
+                    Snackbar.Add($"❌ Error al cambiar contraseña: {ex.Message}", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[UserProfile] ERROR al cambiar contraseña: {ex.GetType().Name} - {ex.Message}");
+                Snackbar.Add($"❌ Error al cambiar contraseña: {ex.Message}", Severity.Error);
+            }
+        }
+        else
+        {
+            Console.WriteLine("[UserProfile] ERROR: result.Data no es ChangePasswordData o es null");
+            Snackbar.Add("Error: Datos inválidos del diálogo", Severity.Error);
+        }
     }
 
     private async Task HandleLogout()

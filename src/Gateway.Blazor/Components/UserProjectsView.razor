@@ -67,25 +67,59 @@
 
     private async Task ShowCreateModal()
     {
-        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
-        var dialog = await DialogService.ShowAsync<CreateProjectDialog>("Crear Proyecto", options);
+        Console.WriteLine("[UserProjectsView] Abriendo diálogo de crear proyecto...");
+        
+        var options = new DialogOptions 
+        { 
+            CloseButton = true, 
+            MaxWidth = MaxWidth.Small, 
+            FullWidth = true,
+            DisableBackdropClick = true // Evitar cerrar al hacer clic fuera
+        };
+        
+        var dialog = await DialogService.ShowAsync<CreateProjectDialog>("", options);
         var result = await dialog.Result;
 
-        if (!result.Canceled && result.Data is CreateProjectRequest request && request != null)
+        Console.WriteLine($"[UserProjectsView] Resultado del diálogo: Canceled={result.Canceled}");
+
+        if (result.Canceled)
         {
+            Console.WriteLine("[UserProjectsView] Usuario canceló la creación");
+            return;
+        }
+
+        if (result.Data is CreateProjectRequest request && request != null)
+        {
+            Console.WriteLine($"[UserProjectsView] Datos recibidos: Name='{request.Name}', Description='{request.Description}'");
+            
             try
             {
+                Console.WriteLine("[UserProjectsView] Llamando al API...");
                 var project = await ApiService.PostAsync<Gateway.Blazor.Models.Project>("/api/projects", request);
+                
                 if (project != null)
                 {
-                    Snackbar.Add("Proyecto creado correctamente", Severity.Success);
+                    Console.WriteLine($"[UserProjectsView] Proyecto creado exitosamente: Id={project.Id}");
+                    Snackbar.Add("✅ Proyecto creado correctamente", Severity.Success);
                     await LoadProjects();
+                }
+                else
+                {
+                    Console.WriteLine("[UserProjectsView] ERROR: El API retornó null");
+                    Snackbar.Add("Error: No se pudo crear el proyecto", Severity.Error);
                 }
             }
             catch (Exception ex)
             {
-                Snackbar.Add($"Error al crear proyecto: {ex.Message}", Severity.Error);
+                Console.WriteLine($"[UserProjectsView] ERROR al crear proyecto: {ex.GetType().Name} - {ex.Message}");
+                Console.WriteLine($"[UserProjectsView] StackTrace: {ex.StackTrace}");
+                Snackbar.Add($"❌ Error al crear proyecto: {ex.Message}", Severity.Error);
             }
+        }
+        else
+        {
+            Console.WriteLine("[UserProjectsView] ERROR: result.Data no es CreateProjectRequest o es null");
+            Snackbar.Add("Error: Datos inválidos del diálogo", Severity.Error);
         }
     }
 

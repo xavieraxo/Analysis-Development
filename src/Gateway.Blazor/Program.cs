@@ -35,9 +35,6 @@ builder.Services.AddScoped<IApiService, ApiService>();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
 
-// WeatherForecast (puede eliminarse después)
-builder.Services.AddSingleton<WeatherForecastService>();
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
