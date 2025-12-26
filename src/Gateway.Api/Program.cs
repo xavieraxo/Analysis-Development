@@ -28,25 +28,61 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") 
         ?? "Data Source=multiagent.db"));
 
+// ========== CONFIGURAR ASP.NET CORE IDENTITY ==========
+// Configurado en paralelo con el sistema actual (BCrypt)
+builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
+{
+    // Configuración de contraseña
+    options.Password.RequireDigit = true;
+    options.Password.RequiredLength = 8;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireLowercase = false;
+    options.Password.RequiredUniqueChars = 3;
+    
+    // Configuración de bloqueo de cuenta
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.AllowedForNewUsers = true;
+    
+    // Configuración de usuario
+    options.User.RequireUniqueEmail = true;
+    options.User.AllowedUserNameCharacters = 
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
+    
+    // Configuración de inicio de sesión
+    options.SignIn.RequireConfirmedEmail = false; // Cambiar a true en producción
+    options.SignIn.RequireConfirmedPhoneNumber = false;
+    options.SignIn.RequireConfirmedAccount = false;
+})
+.AddEntityFrameworkStores<ApplicationDbContext>();
+
 // Configurar JWT Authentication
+// Nota: Identity ya configuró su esquema de autenticación, pero seguimos usando JWT para API
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "your-secret-key-min-32-characters-long-for-security-purposes";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "MultiAgentSystem";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "MultiAgentSystem";
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+// Configurar autenticación para usar JWT como esquema por defecto
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = jwtIssuer,
-            ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-        };
-    });
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtIssuer,
+        ValidAudience = jwtAudience,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+        ClockSkew = TimeSpan.Zero // Eliminar delay de 5 minutos predeterminado
+    };
+});
 
 builder.Services.AddAuthorization(options =>
 {
@@ -77,10 +113,24 @@ builder.Services.AddSingleton<ILlmClient>(provider =>
 });
 
 // Registrar servicios
-builder.Services.AddScoped<IAuthService, AuthService>();
+// Configurar AuthService con switch entre BCrypt (actual) e Identity (nuevo)
+var useIdentityAuth = builder.Configuration.GetValue<bool>("UseIdentityAuth", false);
+
+if (useIdentityAuth)
+{
+    builder.Services.AddScoped<IAuthService, AuthServiceIdentity>();
+    Console.WriteLine("✅ Usando AuthServiceIdentity (ASP.NET Core Identity)");
+}
+else
+{
+    builder.Services.AddScoped<IAuthService, AuthService>();
+    Console.WriteLine("✅ Usando AuthService original (BCrypt)");
+}
+
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IAgentLoggingService, AgentLoggingService>();
 builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
+builder.Services.AddScoped<IUserMigrationService, UserMigrationService>();
 
 // Registrar agentes
 builder.Services.AddSingleton<IAgent, UrAgent>();
@@ -89,8 +139,8 @@ builder.Services.AddSingleton<IAgent, PoAgent>();
 builder.Services.AddSingleton<IAgent, DevAgent>();
 builder.Services.AddSingleton<IAgent, UxAgent>();
 
-// Registrar Orchestrator con logging
-builder.Services.AddSingleton<OrchestratorApp>(provider =>
+// Registrar Orchestrator con logging (Scoped porque usa IAgentLoggingService que es Scoped)
+builder.Services.AddScoped<OrchestratorApp>(provider =>
 {
     var agents = provider.GetServices<IAgent>();
     var llm = provider.GetRequiredService<ILlmClient>();
@@ -158,6 +208,18 @@ using (var scope = app.Services.CreateScope())
         //db.Database.EnsureDeleted(); // Eliminar base de datos existente
     }
     db.Database.EnsureCreated(); // Crear base de datos con el esquema actualizado
+    
+    // Crear tablas de Identity si no existen (migración gradual)
+    var sqlScript = System.IO.File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "create_identity_tables.sql"));
+    try
+    {
+        db.Database.ExecuteSqlRaw(sqlScript);
+    }
+    catch (Exception ex)
+    {
+        // Las tablas ya existen, ignorar error
+        Console.WriteLine($"Las tablas de Identity ya existen o hubo un error: {ex.Message}");
+    }
 }
 
 // NOTA: UseDefaultFiles() y UseStaticFiles() fueron eliminados porque Gateway.Api es solo una API REST.
@@ -489,6 +551,15 @@ app.MapGet("/api/admin/logs", [Authorize(Policy = "AdminOrSuperUser")] async (IA
 })
 .WithName("GetAllLogs")
 .Produces<List<AgentLogEntry>>(StatusCodes.Status200OK);
+
+// Migrar usuarios a Identity (Admin/SuperUsuario) - Endpoint temporal para migración
+app.MapPost("/api/admin/migrate-users", [Authorize(Policy = "AdminOrSuperUser")] async (IUserMigrationService migrationService) =>
+{
+    var result = await migrationService.MigrateUsersToIdentityAsync();
+    return Results.Ok(result);
+})
+.WithName("MigrateUsersToIdentity")
+.Produces<MigrationResult>(StatusCodes.Status200OK);
 
 // ========== ENDPOINTS SOLO SUPERUSUARIO ==========
 

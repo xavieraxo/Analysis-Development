@@ -25,7 +25,7 @@ public class ApiService : IApiService
     {
         var request = new HttpRequestMessage(method, endpoint);
         
-        if (_authService.IsAuthenticated())
+        if (await _authService.IsAuthenticatedAsync())
         {
             var token = _authService.GetToken();
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

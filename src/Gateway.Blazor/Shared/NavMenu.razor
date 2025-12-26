@@ -40,7 +40,7 @@
             // Usar Task.Delay para asegurar que JS Runtime esté listo
             await Task.Delay(100);
             
-            _isAuthenticated = AuthService.IsAuthenticated();
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
             if (_isAuthenticated)
             {
                 var role = AuthService.GetUserRole();

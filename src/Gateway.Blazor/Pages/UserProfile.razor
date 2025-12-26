@@ -1,0 +1,279 @@
+@page "/profile"
+@inject IAuthService AuthService
+@inject IApiService ApiService
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Mi Perfil - Multi-Agent System</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-4">
+    @if (!_isAuthenticated)
+    {
+        <MudAlert Severity="Severity.Warning">Debes iniciar sesión para ver tu perfil.</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="NavigateToLogin">
+            Ir al Login
+        </MudButton>
+    }
+    else
+    {
+        <MudPaper Elevation="2" Class="pa-6">
+            <MudStack Spacing="4">
+                <!-- Header con avatar y nombre -->
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <MudAvatar Color="Color.Primary" Size="Size.Large" Style="width: 80px; height: 80px; font-size: 2rem;">
+                        @GetUserInitials()
+                    </MudAvatar>
+                    <MudStack Spacing="1">
+                        <MudText Typo="Typo.h4">@_userName</MudText>
+                        <MudChip T="string" Color="Color.Primary" Size="Size.Small" Variant="Variant.Filled">
+                            @_userRole
+                        </MudChip>
+                    </MudStack>
+                </MudStack>
+
+                <MudDivider />
+
+                <!-- Información del usuario -->
+                <MudStack Spacing="3">
+                    <MudText Typo="Typo.h6">Información de la Cuenta</MudText>
+                    
+                    <MudTextField @bind-Value="_userEmail" 
+                                 Label="Email" 
+                                 Variant="Variant.Outlined" 
+                                 ReadOnly="true"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.Email" />
+                    
+                    <MudTextField @bind-Value="_userName" 
+                                 Label="Nombre" 
+                                 Variant="Variant.Outlined" 
+                                 ReadOnly="true"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.Person" />
+                    
+                    <MudTextField @bind-Value="_userRole" 
+                                 Label="Rol" 
+                                 Variant="Variant.Outlined" 
+                                 ReadOnly="true"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.AdminPanelSettings" />
+                    
+                    <MudTextField @bind-Value="_userId" 
+                                 Label="ID de Usuario" 
+                                 Variant="Variant.Outlined" 
+                                 ReadOnly="true"
+                                 Adornment="Adornment.Start"
+                                 AdornmentIcon="@Icons.Material.Filled.Tag" />
+                </MudStack>
+
+                <MudDivider />
+
+                <!-- Acciones -->
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.h6">Acciones</MudText>
+                    
+                    <MudButton Variant="Variant.Outlined" 
+                              Color="Color.Primary" 
+                              StartIcon="@Icons.Material.Filled.Lock"
+                              OnClick="ShowChangePasswordDialog"
+                              FullWidth="true">
+                        Cambiar Contraseña
+                    </MudButton>
+                    
+                    <MudButton Variant="Variant.Filled" 
+                              Color="Color.Error" 
+                              StartIcon="@Icons.Material.Filled.Logout"
+                              OnClick="HandleLogout"
+                              FullWidth="true">
+                        Cerrar Sesión
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    private bool _isAuthenticated = false;
+    private string _userName = string.Empty;
+    private string _userEmail = string.Empty;
+    private string _userRole = string.Empty;
+    private string _userId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserInfo();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Task.Delay(200);
+            await LoadUserInfo();
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadUserInfo()
+    {
+        try
+        {
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+            
+            if (!_isAuthenticated)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            var user = AuthService.GetUser();
+            if (user != null)
+            {
+                _userName = user.Name ?? "Usuario";
+                _userEmail = user.Email ?? "Sin email";
+                _userRole = GetRoleDisplayName(user.Role ?? "Final");
+                _userId = user.Id.ToString();
+            }
+        }
+        catch
+        {
+            _isAuthenticated = false;
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private string GetRoleDisplayName(string role)
+    {
+        return role switch
+        {
+            "Admin" => "Administrador",
+            "Final" => "Usuario Final",
+            "Empresa" => "Usuario Empresa",
+            "SuperUsuario" => "Super Usuario",
+            _ => role
+        };
+    }
+
+    private string GetUserInitials()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_userName))
+                return "U";
+
+            var parts = _userName.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            
+            if (parts.Length >= 2 && parts[0].Length > 0 && parts[1].Length > 0)
+            {
+                return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+            }
+            else if (parts.Length == 1 && parts[0].Length >= 2)
+            {
+                return parts[0].Substring(0, 2).ToUpper();
+            }
+            else if (parts.Length == 1 && parts[0].Length == 1)
+            {
+                return parts[0].ToUpper();
+            }
+            
+            return "U";
+        }
+        catch
+        {
+            return "U";
+        }
+    }
+
+    private void NavigateToLogin()
+    {
+        Navigation.NavigateTo("/login");
+    }
+
+    private async Task ShowChangePasswordDialog()
+    {
+        Console.WriteLine("[UserProfile] Abriendo diálogo de cambio de contraseña...");
+        
+        var options = new DialogOptions 
+        { 
+            CloseButton = true, 
+            MaxWidth = MaxWidth.Small, 
+            FullWidth = true,
+            BackdropClick = false
+        };
+        
+        var dialog = await DialogService.ShowAsync<ChangePasswordDialog>("", options);
+        var result = await dialog.Result;
+
+        Console.WriteLine($"[UserProfile] Resultado del diálogo: Canceled={result.Canceled}");
+
+        if (result.Canceled)
+        {
+            Console.WriteLine("[UserProfile] Usuario canceló el cambio de contraseña");
+            return;
+        }
+
+        if (result.Data is ChangePasswordDialog.ChangePasswordData data && data != null)
+        {
+            Console.WriteLine("[UserProfile] Datos recibidos, llamando al API...");
+            
+            try
+            {
+                var request = new
+                {
+                    currentPassword = data.CurrentPassword,
+                    newPassword = data.NewPassword
+                };
+
+                var response = await ApiService.PostAsync<object>("/api/auth/change-password", request);
+                
+                Console.WriteLine("[UserProfile] Contraseña cambiada exitosamente");
+                Snackbar.Add("✅ Contraseña cambiada exitosamente", Severity.Success);
+                
+                // Opcional: Cerrar sesión automáticamente para que vuelva a iniciar sesión con la nueva contraseña
+                await Task.Delay(2000);
+                await HandleLogout();
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"[UserProfile] ERROR al cambiar contraseña: {ex.Message}");
+                
+                // Intentar extraer el mensaje de error del servidor
+                if (ex.Message.Contains("Contraseña actual incorrecta") || ex.Message.Contains("400"))
+                {
+                    Snackbar.Add("❌ La contraseña actual es incorrecta", Severity.Error);
+                }
+                else
+                {
+                    Snackbar.Add($"❌ Error al cambiar contraseña: {ex.Message}", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[UserProfile] ERROR al cambiar contraseña: {ex.GetType().Name} - {ex.Message}");
+                Snackbar.Add($"❌ Error al cambiar contraseña: {ex.Message}", Severity.Error);
+            }
+        }
+        else
+        {
+            Console.WriteLine("[UserProfile] ERROR: result.Data no es ChangePasswordData o es null");
+            Snackbar.Add("Error: Datos inválidos del diálogo", Severity.Error);
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        try
+        {
+            await AuthService.LogoutAsync();
+            Snackbar.Add("Sesión cerrada correctamente", Severity.Success);
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cerrar sesión: {ex.Message}", Severity.Error);
+        }
+    }
+}
+

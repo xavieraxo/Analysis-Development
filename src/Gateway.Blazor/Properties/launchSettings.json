@@ -3,25 +3,16 @@
     "windowsAuthentication": false,
     "anonymousAuthentication": true,
     "iisExpress": {
-      "applicationUrl": "http://localhost:8098",
+      "applicationUrl": "http://localhost:8095",
       "sslPort": 0
     }
   },
   "profiles": {
-    "http": {
+    "Gateway.Blazor": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,
-      "applicationUrl": "http://localhost:8098",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      }
-    },
-    "https": {
-      "commandName": "Project",
-      "dotnetRunMessages": true,
-      "launchBrowser": true,
-      "applicationUrl": "https://localhost:7167;http://localhost:8098",
+      "applicationUrl": "http://localhost:8095",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }

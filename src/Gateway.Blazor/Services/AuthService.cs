@@ -13,6 +13,9 @@ public class AuthService : IAuthService
     private readonly NavigationManager _navigationManager;
     private LoginResponse? _currentUser;
 
+    // Evento que notifica cambios en el estado de autenticación
+    public event Action? OnAuthStateChanged;
+
     public AuthService(HttpClient httpClient, IJSRuntime jsRuntime, NavigationManager navigationManager)
     {
         _httpClient = httpClient;
@@ -42,14 +45,14 @@ public class AuthService : IAuthService
                     // Si han pasado más de 30 minutos, limpiar sesión
                     if (elapsed.TotalMinutes > 30)
                     {
-                        ClearStorage();
+                        await ClearStorageAsync();
                         return;
                     }
                 }
                 else
                 {
                     // Si no hay timestamp, limpiar (sesión antigua)
-                    ClearStorage();
+                    await ClearStorageAsync();
                     return;
                 }
                 
@@ -61,7 +64,7 @@ public class AuthService : IAuthService
                 else
                 {
                     // Si el token expiró, limpiar el almacenamiento
-                    ClearStorage();
+                    await ClearStorageAsync();
                 }
             }
         }
@@ -71,13 +74,13 @@ public class AuthService : IAuthService
         }
     }
     
-    private void ClearStorage()
+    private async Task ClearStorageAsync()
     {
         try
         {
-            _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "token").GetAwaiter().GetResult();
-            _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "user").GetAwaiter().GetResult();
-            _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "loginTimestamp").GetAwaiter().GetResult();
+            await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "token");
+            await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "user");
+            await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "loginTimestamp");
         }
         catch
         {
@@ -144,7 +147,7 @@ public class AuthService : IAuthService
             Id = userElement.TryGetProperty("id", out var idElement) ? idElement.GetInt32() : 0,
             Email = userElement.TryGetProperty("email", out var emailElement) ? emailElement.GetString() ?? string.Empty : string.Empty,
             Name = userElement.TryGetProperty("name", out var nameElement) ? nameElement.GetString() ?? string.Empty : string.Empty,
-            Role = userElement.TryGetProperty("role", out var roleElement) ? roleElement.GetString() ?? string.Empty : string.Empty
+            Role = userElement.TryGetProperty("role", out var roleElement) ? GetRoleAsString(roleElement) : string.Empty
         };
         
         var loginResponse = new LoginResponse
@@ -160,7 +163,35 @@ public class AuthService : IAuthService
             System.Text.Json.JsonSerializer.Serialize(loginResponse.User));
         await _jsRuntime.InvokeVoidAsync("localStorage.setItem", "loginTimestamp", loginTimestamp.ToString());
 
+        // Notificar que el estado de autenticación cambió
+        Console.WriteLine("✅ AuthService - Notificando cambio de estado (login)");
+        OnAuthStateChanged?.Invoke();
+
         return loginResponse;
+    }
+    
+    private static string GetRoleAsString(System.Text.Json.JsonElement roleElement)
+    {
+        // El backend puede enviar el role como número (enum) o como string
+        if (roleElement.ValueKind == System.Text.Json.JsonValueKind.Number)
+        {
+            // Convertir número a nombre del enum (UserRole en backend)
+            // 0=Final, 1=Empresa, 2=Admin, 3=SuperUsuario
+            var roleNumber = roleElement.GetInt32();
+            return roleNumber switch
+            {
+                0 => "Final",
+                1 => "Empresa",
+                2 => "Admin",
+                3 => "SuperUsuario",
+                _ => "Final" // Default
+            };
+        }
+        else if (roleElement.ValueKind == System.Text.Json.JsonValueKind.String)
+        {
+            return roleElement.GetString() ?? "Final";
+        }
+        return "Final";
     }
 
     public async Task<bool> LogoutAsync()
@@ -169,11 +200,27 @@ public class AuthService : IAuthService
         await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "token");
         await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "user");
         await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "loginTimestamp");
+        
+        // Notificar que el estado de autenticación cambió
+        Console.WriteLine("✅ AuthService - Notificando cambio de estado (logout)");
+        OnAuthStateChanged?.Invoke();
+        
         _navigationManager.NavigateTo("/login");
         return true;
     }
 
     public bool IsAuthenticated()
+    {
+        // Versión síncrona simplificada: solo verifica la memoria local
+        // Para verificación completa con localStorage, usar IsAuthenticatedAsync()
+        if (_currentUser != null && !string.IsNullOrEmpty(_currentUser.Token))
+        {
+            return !IsTokenExpired(_currentUser.Token);
+        }
+        return false;
+    }
+    
+    public async Task<bool> IsAuthenticatedAsync()
     {
         // Si _currentUser está en memoria, verificar directamente
         if (_currentUser != null)
@@ -183,20 +230,19 @@ public class AuthService : IAuthService
                 return false;
             
             // Verificar expiración de 30 minutos
-            return CheckSessionExpiration();
+            return await CheckSessionExpirationAsync();
         }
         
-        // Si no está en memoria, intentar cargar desde storage de forma síncrona
-        // Nota: Esto puede fallar durante el renderizado inicial, por lo que debe estar en un try-catch
+        // Si no está en memoria, intentar cargar desde storage de forma asíncrona
         try
         {
             // Verificar si IJSRuntime está disponible antes de usarlo
             if (_jsRuntime == null)
                 return false;
                 
-            var token = _jsRuntime.InvokeAsync<string>("localStorage.getItem", "token").GetAwaiter().GetResult();
-            var userJson = _jsRuntime.InvokeAsync<string>("localStorage.getItem", "user").GetAwaiter().GetResult();
-            var loginTimestampStr = _jsRuntime.InvokeAsync<string>("localStorage.getItem", "loginTimestamp").GetAwaiter().GetResult();
+            var token = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "token");
+            var userJson = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "user");
+            var loginTimestampStr = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "loginTimestamp");
             
             if (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(userJson))
             {
@@ -209,13 +255,13 @@ public class AuthService : IAuthService
                     
                     if (elapsed.TotalMinutes > 30)
                     {
-                        ClearStorage();
+                        await ClearStorageAsync();
                         return false;
                     }
                 }
                 else
                 {
-                    ClearStorage();
+                    await ClearStorageAsync();
                     return false;
                 }
                 
@@ -235,11 +281,11 @@ public class AuthService : IAuthService
         return false;
     }
     
-    private bool CheckSessionExpiration()
+    private async Task<bool> CheckSessionExpirationAsync()
     {
         try
         {
-            var loginTimestampStr = _jsRuntime.InvokeAsync<string>("localStorage.getItem", "loginTimestamp").GetAwaiter().GetResult();
+            var loginTimestampStr = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "loginTimestamp");
             if (!string.IsNullOrEmpty(loginTimestampStr) && long.TryParse(loginTimestampStr, out var loginTimestamp))
             {
                 var loginTime = DateTimeOffset.FromUnixTimeMilliseconds(loginTimestamp);
@@ -249,28 +295,28 @@ public class AuthService : IAuthService
                 if (elapsed.TotalMinutes > 30)
                 {
                     _currentUser = null;
-                    ClearStorage();
+                    await ClearStorageAsync();
                     return false;
                 }
             }
             else
             {
                 _currentUser = null;
-                ClearStorage();
+                await ClearStorageAsync();
                 return false;
             }
         }
         catch
         {
             _currentUser = null;
-            ClearStorage();
+            await ClearStorageAsync();
             return false;
         }
         
         if (IsTokenExpired(_currentUser?.Token ?? string.Empty))
         {
             _currentUser = null;
-            ClearStorage();
+            await ClearStorageAsync();
             return false;
         }
         

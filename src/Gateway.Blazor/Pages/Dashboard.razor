@@ -76,7 +76,7 @@
             // Verificar también desde el AuthService como respaldo
             if (!_isAuthenticated)
             {
-                _isAuthenticated = AuthService.IsAuthenticated();
+                _isAuthenticated = await AuthService.IsAuthenticatedAsync();
             }
             
             if (_isAuthenticated)
@@ -88,7 +88,7 @@
         catch (Exception ex)
         {
             // En caso de error, verificar desde AuthService directamente
-            _isAuthenticated = AuthService.IsAuthenticated();
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
             if (_isAuthenticated)
             {
                 var userRole = AuthService.GetUserRole();

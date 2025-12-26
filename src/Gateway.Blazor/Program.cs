@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.Authorization;
 using MudBlazor.Services;
 using Gateway.Blazor.Services;
-using Gateway.Blazor.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,9 +33,6 @@ builder.Services.AddScoped<IApiService, ApiService>();
 // Autenticación y autorización para Blazor
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
-
-// WeatherForecast (puede eliminarse después)
-builder.Services.AddSingleton<WeatherForecastService>();
 
 var app = builder.Build();
 

@@ -1,13 +1,47 @@
 ﻿@inherits LayoutComponentBase
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@implements IDisposable
 
 <MudThemeProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
+<MudPopoverProvider />
 
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
         <MudText Typo="Typo.h6">Multi-Agent System</MudText>
+        <MudSpacer />
+        @if (_isAuthenticated)
+        {
+            <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                <ActivatorContent>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="cursor: pointer;">
+                        <MudAvatar Color="Color.Primary" Size="Size.Small" Style="width: 40px; height: 40px;">
+                            @GetUserInitials()
+                        </MudAvatar>
+                        <MudText Typo="Typo.body2" Style="color: white;">@_userName</MudText>
+                    </MudStack>
+                </ActivatorContent>
+                <ChildContent>
+                    <MudMenuItem Disabled="true">
+                        <div style="padding: 8px 16px;">
+                            <MudText Typo="Typo.body2" Style="font-weight: bold;">@_userName</MudText>
+                            <MudText Typo="Typo.caption" Style="color: rgba(0,0,0,0.6);">@_userRole</MudText>
+                        </div>
+                    </MudMenuItem>
+                    <MudDivider />
+                    <MudMenuItem Icon="@Icons.Material.Filled.Person" OnClick="NavigateToProfile">
+                        Ver Perfil
+                    </MudMenuItem>
+                    <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="HandleLogout">
+                        Cerrar Sesión
+                    </MudMenuItem>
+                </ChildContent>
+            </MudMenu>
+        }
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
         <NavMenu />
@@ -21,6 +55,145 @@
 
 @code {
     private bool _drawerOpen = true;
+    private bool _isAuthenticated = false;
+    private string _userName = string.Empty;
+    private string _userRole = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Suscribirse al evento de cambio de estado de autenticación
+        AuthService.OnAuthStateChanged += OnAuthStateChangedHandler;
+        Console.WriteLine("👂 MainLayout - Suscrito a OnAuthStateChanged");
+        
+        await LoadUserInfo();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Recargar información del usuario después del primer render
+            await Task.Delay(200); // Esperar a que JS Interop esté listo
+            await LoadUserInfo();
+            StateHasChanged();
+        }
+    }
+
+    private async void OnAuthStateChangedHandler()
+    {
+        Console.WriteLine("🔔 MainLayout - Evento OnAuthStateChanged recibido, recargando usuario...");
+        await LoadUserInfo();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        // Desuscribirse del evento al destruir el componente
+        AuthService.OnAuthStateChanged -= OnAuthStateChangedHandler;
+        Console.WriteLine("👋 MainLayout - Desuscrito de OnAuthStateChanged");
+    }
+
+    private async Task LoadUserInfo()
+    {
+        try
+        {
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+            if (_isAuthenticated)
+            {
+                var user = AuthService.GetUser();
+                if (user != null)
+                {
+                    _userName = user.Name ?? "Usuario";
+                    _userRole = GetRoleDisplayName(user.Role ?? "Final");
+                    Console.WriteLine($"👤 MainLayout - Usuario cargado: {_userName}, Rol: {_userRole}");
+                }
+                else
+                {
+                    Console.WriteLine("⚠️ MainLayout - Usuario es null pero isAuthenticated=true");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ MainLayout - Error al cargar usuario: {ex.Message}");
+            _isAuthenticated = false;
+        }
+    }
+
+    private string GetRoleDisplayName(string role)
+    {
+        return role switch
+        {
+            "Admin" => "Administrador",
+            "Final" => "Usuario Final",
+            "Empresa" => "Usuario Empresa",
+            "SuperUsuario" => "Super Usuario",
+            _ => role
+        };
+    }
+
+    private string GetUserInitials()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_userName))
+            {
+                Console.WriteLine("⚠️ GetUserInitials - userName está vacío, usando 'U'");
+                return "U";
+            }
+
+            var parts = _userName.Trim().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            
+            if (parts.Length >= 2 && parts[0].Length > 0 && parts[1].Length > 0)
+            {
+                // Iniciales de nombre y apellido
+                var initials = $"{parts[0][0]}{parts[1][0]}".ToUpper();
+                Console.WriteLine($"👤 GetUserInitials - '{_userName}' -> '{initials}' (nombre y apellido)");
+                return initials;
+            }
+            else if (parts.Length == 1 && parts[0].Length >= 2)
+            {
+                // Primeras dos letras del nombre
+                var initials = parts[0].Substring(0, 2).ToUpper();
+                Console.WriteLine($"👤 GetUserInitials - '{_userName}' -> '{initials}' (dos letras)");
+                return initials;
+            }
+            else if (parts.Length == 1 && parts[0].Length == 1)
+            {
+                // Una sola letra
+                var initials = parts[0].ToUpper();
+                Console.WriteLine($"👤 GetUserInitials - '{_userName}' -> '{initials}' (una letra)");
+                return initials;
+            }
+            
+            Console.WriteLine($"⚠️ GetUserInitials - '{_userName}' no coincide con ningún patrón, usando 'U'");
+            return "U";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ GetUserInitials - Error: {ex.Message}, usando 'U'");
+            return "U";
+        }
+    }
+
+    private void NavigateToProfile()
+    {
+        Navigation.NavigateTo("/profile");
+    }
+
+    private async Task HandleLogout()
+    {
+        try
+        {
+            await AuthService.LogoutAsync();
+            Snackbar.Add("Sesión cerrada correctamente", Severity.Success);
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cerrar sesión: {ex.Message}", Severity.Error);
+        }
+    }
 
     private void ToggleDrawer()
     {

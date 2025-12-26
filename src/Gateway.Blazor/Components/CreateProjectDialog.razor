@@ -1,16 +1,46 @@
+@inject ISnackbar Snackbar
+
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">Crear Nuevo Proyecto</MudText>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.AddCircle" Class="mr-2" />
+            Crear Nuevo Proyecto
+        </MudText>
     </TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
-            <MudTextField @bind-Value="_name" Label="Nombre del Proyecto *" Variant="Variant.Outlined" Required="true" />
-            <MudTextField @bind-Value="_description" Label="Descripción *" Variant="Variant.Outlined" Lines="4" Required="true" />
+            <MudTextField @bind-Value="_name" 
+                         Label="Nombre del Proyecto" 
+                         Variant="Variant.Outlined" 
+                         Required="true"
+                         RequiredError="El nombre es obligatorio"
+                         @ref="_nameField"
+                         Immediate="true"
+                         HelperText="Ingresa un nombre descriptivo para tu proyecto"
+                         MaxLength="100" />
+            
+            <MudTextField @bind-Value="_description" 
+                         Label="Descripción" 
+                         Variant="Variant.Outlined" 
+                         Lines="4" 
+                         Required="true"
+                         RequiredError="La descripción es obligatoria"
+                         @ref="_descriptionField"
+                         Immediate="true"
+                         HelperText="Describe brevemente el objetivo del proyecto"
+                         MaxLength="500" />
+            
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">@_errorMessage</MudAlert>
+            }
         </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled">Crear</MudButton>
-        <MudButton OnClick="Cancel" Color="Color.Secondary">Cancelar</MudButton>
+        <MudButton OnClick="Cancel" Color="Color.Secondary" Variant="Variant.Text">Cancelar</MudButton>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Check">
+            Crear Proyecto
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -19,16 +49,67 @@
 
     private string _name = string.Empty;
     private string _description = string.Empty;
+    private string _errorMessage = string.Empty;
+    private MudTextField<string>? _nameField;
+    private MudTextField<string>? _descriptionField;
 
     private void Submit()
     {
-        if (string.IsNullOrWhiteSpace(_name) || string.IsNullOrWhiteSpace(_description))
+        _errorMessage = string.Empty;
+        
+        // Validar nombre
+        if (string.IsNullOrWhiteSpace(_name))
         {
+            _errorMessage = "El nombre del proyecto es obligatorio";
+            Snackbar.Add(_errorMessage, Severity.Error);
+            Console.WriteLine($"[CreateProjectDialog] Error: {_errorMessage}");
+            _nameField?.FocusAsync();
             return;
         }
-        MudDialog?.Close(DialogResult.Ok(new CreateProjectRequest { Name = _name, Description = _description }));
+
+        if (_name.Length < 3)
+        {
+            _errorMessage = "El nombre debe tener al menos 3 caracteres";
+            Snackbar.Add(_errorMessage, Severity.Error);
+            Console.WriteLine($"[CreateProjectDialog] Error: {_errorMessage}");
+            _nameField?.FocusAsync();
+            return;
+        }
+
+        // Validar descripción
+        if (string.IsNullOrWhiteSpace(_description))
+        {
+            _errorMessage = "La descripción del proyecto es obligatoria";
+            Snackbar.Add(_errorMessage, Severity.Error);
+            Console.WriteLine($"[CreateProjectDialog] Error: {_errorMessage}");
+            _descriptionField?.FocusAsync();
+            return;
+        }
+
+        if (_description.Length < 10)
+        {
+            _errorMessage = "La descripción debe tener al menos 10 caracteres";
+            Snackbar.Add(_errorMessage, Severity.Error);
+            Console.WriteLine($"[CreateProjectDialog] Error: {_errorMessage}");
+            _descriptionField?.FocusAsync();
+            return;
+        }
+
+        // Validación exitosa
+        var request = new CreateProjectRequest 
+        { 
+            Name = _name.Trim(), 
+            Description = _description.Trim() 
+        };
+        
+        Console.WriteLine($"[CreateProjectDialog] Enviando datos: Name='{request.Name}', Description='{request.Description}'");
+        MudDialog?.Close(DialogResult.Ok(request));
     }
 
-    private void Cancel() => MudDialog?.Cancel();
+    private void Cancel()
+    {
+        Console.WriteLine("[CreateProjectDialog] Cancelado por usuario");
+        MudDialog?.Cancel();
+    }
 }
 
