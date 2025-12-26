@@ -139,8 +139,8 @@ builder.Services.AddSingleton<IAgent, PoAgent>();
 builder.Services.AddSingleton<IAgent, DevAgent>();
 builder.Services.AddSingleton<IAgent, UxAgent>();
 
-// Registrar Orchestrator con logging
-builder.Services.AddSingleton<OrchestratorApp>(provider =>
+// Registrar Orchestrator con logging (Scoped porque usa IAgentLoggingService que es Scoped)
+builder.Services.AddScoped<OrchestratorApp>(provider =>
 {
     var agents = provider.GetServices<IAgent>();
     var llm = provider.GetRequiredService<ILlmClient>();
