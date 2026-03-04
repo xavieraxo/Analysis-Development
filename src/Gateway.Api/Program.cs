@@ -1,6 +1,7 @@
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Agents.Dev;
@@ -20,13 +21,31 @@ using Microsoft.OpenApi.Models;
 using Shared.Abstractions;
 using OrchestratorApp = Orchestrator.App.Orchestrator;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Shared.Knowledge;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configurar Entity Framework Core con SQLite
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+
+// Configurar Entity Framework Core con PostgreSQL
+var defaultConn = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? "Host=localhost;Port=5433;Database=multiagent;Username=appuser;Password=appsecret";
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") 
-        ?? "Data Source=multiagent.db"));
+{
+    options.UseNpgsql(defaultConn);
+}, optionsLifetime: ServiceLifetime.Singleton);
+
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
+{
+    options.UseNpgsql(defaultConn);
+});
 
 // ========== CONFIGURAR ASP.NET CORE IDENTITY ==========
 // Configurado en paralelo con el sistema actual (BCrypt)
@@ -112,6 +131,83 @@ builder.Services.AddSingleton<ILlmClient>(provider =>
     return new OpenAiClient(httpClient, model);
 });
 
+// Configurar Embeddings (RAG)
+var embeddingsSection = builder.Configuration.GetSection("Embeddings");
+var embeddingsOptions = new EmbeddingOptions
+{
+    BaseUrl = embeddingsSection.GetValue<string>("BaseUrl") ?? baseUrl,
+    Model = embeddingsSection.GetValue<string>("Model") ?? "nomic-embed-text",
+    TimeoutSeconds = embeddingsSection.GetValue<int?>("TimeoutSeconds") ?? timeoutSeconds,
+    Key = embeddingsSection.GetValue<string>("Key") ?? builder.Configuration["OpenAI:Key"]
+};
+
+builder.Services.AddSingleton(embeddingsOptions);
+
+builder.Services.AddHttpClient<OpenAiEmbeddingClient>(c =>
+{
+    c.BaseAddress = new Uri(embeddingsOptions.BaseUrl);
+    c.Timeout = TimeSpan.FromSeconds(embeddingsOptions.TimeoutSeconds);
+    if (!string.IsNullOrEmpty(embeddingsOptions.Key))
+    {
+        c.DefaultRequestHeaders.Add("Authorization", $"Bearer {embeddingsOptions.Key}");
+    }
+});
+
+builder.Services.AddSingleton<IEmbeddingClient>(provider =>
+{
+    var httpClient = provider.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(OpenAiEmbeddingClient));
+    var opts = provider.GetRequiredService<EmbeddingOptions>();
+    return new OpenAiEmbeddingClient(httpClient, opts.Model);
+});
+
+var ragSection = builder.Configuration.GetSection("Rag");
+var ragOptions = new PgVectorOptions
+{
+    ConnectionString = ragSection.GetValue<string>("ConnectionString") ?? defaultConn,
+    Schema = ragSection.GetValue<string>("Schema") ?? "public",
+    TableName = ragSection.GetValue<string>("TableName") ?? "knowledge_chunks",
+    EmbeddingDimensions = ragSection.GetValue<int?>("EmbeddingDimensions") ?? 768,
+    MaxContextChars = ragSection.GetValue<int?>("MaxContextChars") ?? 4000,
+    IvfLists = ragSection.GetValue<int?>("IvfLists") ?? 100
+};
+
+builder.Services.AddSingleton(ragOptions);
+builder.Services.AddSingleton<IRetriever, PgVectorRetriever>();
+builder.Services.AddSingleton<IKnowledgeStore, PgVectorKnowledgeStore>();
+
+// Observabilidad / Telemetría (OpenTelemetry)
+var otelSection = builder.Configuration.GetSection("OpenTelemetry");
+var otelEnabled = otelSection.GetValue<bool>("Enabled", false);
+if (otelEnabled)
+{
+    var serviceName = otelSection.GetValue<string>("ServiceName") ?? "Gateway.Api";
+    var otlpEndpoint = otelSection.GetValue<string>("OtlpEndpoint");
+
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(resource => resource.AddService(serviceName))
+        .WithTracing(tracing =>
+        {
+            tracing.AddAspNetCoreInstrumentation();
+            tracing.AddHttpClientInstrumentation();
+            tracing.AddEntityFrameworkCoreInstrumentation();
+
+            if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+            {
+                tracing.AddOtlpExporter(options => options.Endpoint = new Uri(otlpEndpoint));
+            }
+        })
+        .WithMetrics(metrics =>
+        {
+            metrics.AddAspNetCoreInstrumentation();
+            metrics.AddHttpClientInstrumentation();
+
+            if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+            {
+                metrics.AddOtlpExporter(options => options.Endpoint = new Uri(otlpEndpoint));
+            }
+        });
+}
+
 // Registrar servicios
 // Configurar AuthService con switch entre BCrypt (actual) e Identity (nuevo)
 var useIdentityAuth = builder.Configuration.GetValue<bool>("UseIdentityAuth", false);
@@ -123,7 +219,7 @@ if (useIdentityAuth)
 }
 else
 {
-    builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
     Console.WriteLine("✅ Usando AuthService original (BCrypt)");
 }
 
@@ -131,13 +227,18 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IAgentLoggingService, AgentLoggingService>();
 builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
 builder.Services.AddScoped<IUserMigrationService, UserMigrationService>();
+builder.Services.AddScoped<BehaviorService>();
+builder.Services.AddScoped<IBehaviorService>(sp => sp.GetRequiredService<BehaviorService>());
+builder.Services.AddScoped<IBehaviorProvider>(sp => sp.GetRequiredService<BehaviorService>());
+builder.Services.AddScoped<IEmailSender, EmailSender>();
+builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
 
 // Registrar agentes
-builder.Services.AddSingleton<IAgent, UrAgent>();
-builder.Services.AddSingleton<IAgent, PmAgent>();
-builder.Services.AddSingleton<IAgent, PoAgent>();
-builder.Services.AddSingleton<IAgent, DevAgent>();
-builder.Services.AddSingleton<IAgent, UxAgent>();
+builder.Services.AddScoped<IAgent, UrAgent>();
+builder.Services.AddScoped<IAgent, PmAgent>();
+builder.Services.AddScoped<IAgent, PoAgent>();
+builder.Services.AddScoped<IAgent, DevAgent>();
+builder.Services.AddScoped<IAgent, UxAgent>();
 
 // Registrar Orchestrator con logging (Scoped porque usa IAgentLoggingService que es Scoped)
 builder.Services.AddScoped<OrchestratorApp>(provider =>
@@ -197,29 +298,50 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Aplicar migraciones automáticamente
+async Task<int> GetLegacyUserIdAsync(ClaimsPrincipal user, IServiceProvider services)
+{
+    if (!useIdentityAuth)
+    {
+        return int.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    }
+
+    var legacyClaim = user.FindFirstValue("legacy_user_id");
+    if (!string.IsNullOrEmpty(legacyClaim) && int.TryParse(legacyClaim, out var lid))
+    {
+        return lid;
+    }
+
+    var email = user.FindFirstValue(ClaimTypes.Email);
+    if (string.IsNullOrWhiteSpace(email))
+    {
+        throw new InvalidOperationException("El token no contiene ClaimTypes.Email para resolver legacy_user_id.");
+    }
+
+    var emailNorm = email.Trim().ToLowerInvariant();
+    using var scope = services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var legacy = await db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == emailNorm);
+    if (legacy == null)
+    {
+        legacy = new User
+        {
+            Email = emailNorm,
+            Name = user.FindFirstValue(ClaimTypes.Name) ?? "Usuario",
+            Role = UserRole.Final,
+            IsActive = true,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N"))
+        };
+        db.Users.Add(legacy);
+        await db.SaveChangesAsync();
+    }
+    return legacy.Id;
+}
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    // En desarrollo, eliminar y recrear la base de datos si el esquema cambió
-    // En producción, usar migraciones de EF Core
-    if (app.Environment.IsDevelopment())
-    {
-        //db.Database.EnsureDeleted(); // Eliminar base de datos existente
-    }
-    db.Database.EnsureCreated(); // Crear base de datos con el esquema actualizado
-    
-    // Crear tablas de Identity si no existen (migración gradual)
-    var sqlScript = System.IO.File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "create_identity_tables.sql"));
-    try
-    {
-        db.Database.ExecuteSqlRaw(sqlScript);
-    }
-    catch (Exception ex)
-    {
-        // Las tablas ya existen, ignorar error
-        Console.WriteLine($"Las tablas de Identity ya existen o hubo un error: {ex.Message}");
-    }
+    // Aplicar migraciones de EF Core (más rápido y consistente que EnsureCreated)
+    db.Database.Migrate();
 }
 
 // NOTA: UseDefaultFiles() y UseStaticFiles() fueron eliminados porque Gateway.Api es solo una API REST.
@@ -286,21 +408,31 @@ app.MapPost("/api/auth/register", async (IAuthService authService, RegisterReque
 .Produces(StatusCodes.Status400BadRequest);
 
 // Olvidé mi contraseña
-app.MapPost("/api/auth/forgot-password", async (IAuthService authService, ForgotPasswordRequest request) =>
+app.MapPost("/api/auth/forgot-password", async (IPasswordRecoveryService recoveryService, ForgotPasswordRequest request) =>
 {
-    var result = await authService.ForgotPasswordAsync(request.Email);
-    return Results.Ok(new { message = "Si el email existe, se enviará un enlace de recuperación" });
+    await recoveryService.StartRecoveryAsync(request.Email);
+    return Results.Ok(new { message = "Si el email existe, se enviará un código de recuperación" });
 })
 .WithName("ForgotPassword")
 .Produces(StatusCodes.Status200OK);
 
-// Reset password
-app.MapPost("/api/auth/reset-password", async (IAuthService authService, ResetPasswordRequest request) =>
+// Verificar código
+app.MapPost("/api/auth/verify-code", async (IPasswordRecoveryService recoveryService, VerifyCodeRequest request) =>
 {
-    var result = await authService.ResetPasswordAsync(request.Token, request.NewPassword);
+    var ok = await recoveryService.VerifyCodeAsync(request.Email, request.Code);
+    return ok ? Results.Ok(new { valid = true }) : Results.BadRequest(new { message = "Código inválido o expirado" });
+})
+.WithName("VerifyCode")
+.Produces(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status400BadRequest);
+
+// Reset password con código
+app.MapPost("/api/auth/reset-password", async (IPasswordRecoveryService recoveryService, ResetPasswordWithCodeRequest request) =>
+{
+    var result = await recoveryService.ResetPasswordAsync(request.Email, request.Code, request.NewPassword);
     if (!result)
     {
-        return Results.BadRequest(new { message = "Token inválido o expirado" });
+        return Results.BadRequest(new { message = "Código inválido o expirado" });
     }
     return Results.Ok(new { message = "Contraseña restablecida exitosamente" });
 })
@@ -338,7 +470,7 @@ app.MapPost("/api/auth/change-password", [Authorize] async (HttpContext context,
 // Proyectos del usuario
 app.MapGet("/api/projects", [Authorize] async (HttpContext context, IProjectService projectService) =>
 {
-    var userId = int.Parse(context.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    var userId = await GetLegacyUserIdAsync(context.User, context.RequestServices);
     var projects = await projectService.GetUserProjectsAsync(userId);
     return Results.Ok(projects);
 })
@@ -348,7 +480,7 @@ app.MapGet("/api/projects", [Authorize] async (HttpContext context, IProjectServ
 // Crear proyecto
 app.MapPost("/api/projects", [Authorize] async (HttpContext context, IProjectService projectService, CreateProjectRequest request) =>
 {
-    var userId = int.Parse(context.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    var userId = await GetLegacyUserIdAsync(context.User, context.RequestServices);
     var project = await projectService.CreateProjectAsync(userId, request.Name, request.Description);
     return Results.Created($"/api/projects/{project.Id}", project);
 })
@@ -358,7 +490,7 @@ app.MapPost("/api/projects", [Authorize] async (HttpContext context, IProjectSer
 // Obtener proyecto por ID
 app.MapGet("/api/projects/{id}", [Authorize] async (int id, HttpContext context, IProjectService projectService) =>
 {
-    var userId = int.Parse(context.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    var userId = await GetLegacyUserIdAsync(context.User, context.RequestServices);
     var project = await projectService.GetProjectByIdAsync(id, userId);
     return project == null ? Results.NotFound() : Results.Ok(project);
 })
@@ -377,7 +509,7 @@ app.MapPost("/api/chat/run", [Authorize] async (
     int? projectId,
     CancellationToken ct) =>
 {
-    var userId = int.Parse(context.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    var userId = await GetLegacyUserIdAsync(context.User, context.RequestServices);
     
     // Si hay projectId, validar que pertenece al usuario
     if (projectId.HasValue)
@@ -523,6 +655,33 @@ app.MapDelete("/api/configurations/{id}", [Authorize(Policy = "AdminOrSuperUser"
 .Produces(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status404NotFound);
 
+// ========== ENDPOINTS DE BEHAVIORS ==========
+app.MapGet("/api/behaviors", [Authorize(Policy = "AdminOrSuperUser")] async (IBehaviorService behaviorService, CancellationToken ct) =>
+{
+    var list = await behaviorService.GetAllAsync(ct);
+    return Results.Ok(list);
+})
+.WithName("GetAllBehaviors")
+.Produces<List<BehaviorDto>>(StatusCodes.Status200OK);
+
+app.MapGet("/api/behaviors/{role}", [Authorize] async (AgentRole role, IBehaviorService behaviorService, CancellationToken ct) =>
+{
+    var behavior = await behaviorService.GetByRoleAsync(role, ct);
+    return Results.Ok(behavior);
+})
+.WithName("GetBehaviorByRole")
+.Produces<BehaviorDto>(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status404NotFound);
+
+app.MapPost("/api/behaviors", [Authorize(Policy = "AdminOrSuperUser")] async (BehaviorUpsertRequest request, IBehaviorService behaviorService, CancellationToken ct) =>
+{
+    var behavior = await behaviorService.UpsertAsync(request, ct);
+    return Results.Ok(behavior);
+})
+.WithName("UpsertBehavior")
+.Produces<BehaviorDto>(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status400BadRequest);
+
 // ========== ENDPOINTS SOLO ADMIN/SUPERUSUARIO ==========
 
 // Listar todos los proyectos (Admin/SuperUsuario)
@@ -642,7 +801,10 @@ app.MapPost("/api/admin/users", [Authorize] async (HttpContext context, IAuthSer
     if (newUser == null)
     {
         logger.LogWarning($"Error al crear usuario. Email: {request.Email}, Rol solicitado: {request.Role}, Creador: {user.Role}");
-        return Results.BadRequest(new { message = "Error al crear usuario. El email puede estar en uso o no tienes permisos para crear este tipo de usuario." });
+        return Results.BadRequest(new
+        {
+            message = "Error al crear usuario. Verifica que el email no exista, el rol sea permitido y la contraseña cumpla: 8+ caracteres, 1 mayúscula, 1 número, 3 caracteres únicos."
+        });
     }
 
     logger.LogInformation($"Usuario creado exitosamente: {newUser.Email}, Rol: {newUser.Role}");

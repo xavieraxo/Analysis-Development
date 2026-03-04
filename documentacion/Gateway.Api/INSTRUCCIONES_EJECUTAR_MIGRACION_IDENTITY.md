@@ -25,11 +25,11 @@ dotnet build
 
 ### **2. Verificar backup de base de datos:**
 ```powershell
-cd E:\Proyectos\PoC_Analisis_Desarrollo\src\Gateway.Api
-dir multiagent.db.backup*
+# Ejemplo usando pg_dump (PostgreSQL)
+pg_dump -h localhost -p 5433 -U appuser -d multiagent -F c -f "multiagent.backup_$(Get-Date -Format 'yyyyMMdd_HHmmss').dump"
 ```
 
-Deberías ver un archivo `multiagent.db.backup_YYYYMMDD_HHMMSS`
+Deberías ver un archivo `.dump` generado.
 
 ---
 
@@ -68,9 +68,10 @@ dotnet run --no-launch-profile --urls "http://localhost:8095"
 3. Hacer clic en "¿Eres SuperAdministrador?"
 4. Pegar el hash SuperAdmin del `appsettings.json`:
    ```
-   $2a$11$EIxKq9Y2Z3Z3Z3Z3Z3Z3ZeZ3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z3Z
+   A4F1C72E99B3842F7D1A5C0083F6D2B1
    ```
-5. Hacer clic en "Iniciar Sesión"
+5. (Opcional) Ingresa una contraseña si deseas crear el SuperUsuario con esa clave
+6. Hacer clic en "Iniciar Sesión"
 
 ### **2.3. Obtener Token JWT:**
 **Opción A: Desde DevTools del navegador**
@@ -249,21 +250,18 @@ dotnet run --no-launch-profile --urls "http://localhost:8095"
 
 ### **Opción 2: Restaurar Backup de BD (Completo)**
 ```powershell
-cd E:\Proyectos\PoC_Analisis_Desarrollo\src\Gateway.Api
-
 # Detener aplicación primero
-# Luego restaurar backup
-Copy-Item multiagent.db.backup_YYYYMMDD_HHMMSS multiagent.db -Force
+# Luego restaurar backup con pg_restore
+pg_restore -h localhost -p 5433 -U appuser -d multiagent -c "multiagent.backup_YYYYMMDD_HHMMSS.dump"
 ```
 
 ---
 
 ## 📊 **VERIFICAR MIGRACIÓN EN BASE DE DATOS**
 
-### **Usando DB Browser for SQLite:**
-1. Descargar: https://sqlitebrowser.org/dl/
-2. Abrir: `E:\Proyectos\PoC_Analisis_Desarrollo\src\Gateway.Api\multiagent.db`
-3. Ver tablas:
+### **Usando pgAdmin o psql:**
+1. Conectar a `localhost:5433` (DB `multiagent`, usuario `appuser`)
+2. Ver tablas:
    - `Users` (tabla original - debe tener datos)
    - `IdentityUsers` (tabla nueva - debe tener usuarios migrados)
    - `IdentityRoles` (tabla nueva - debe tener roles)
@@ -271,18 +269,18 @@ Copy-Item multiagent.db.backup_YYYYMMDD_HHMMSS multiagent.db -Force
 ### **Consultas SQL de Verificación:**
 ```sql
 -- Ver usuarios originales
-SELECT Id, Email, Name, Role FROM Users;
+SELECT "Id", "Email", "Name", "Role" FROM "Users";
 
 -- Ver usuarios migrados a Identity
-SELECT Id, UserName, Email, NormalizedEmail FROM IdentityUsers;
+SELECT "Id", "UserName", "Email", "NormalizedEmail" FROM "IdentityUsers";
 
 -- Ver relación de migración
 SELECT 
-    u.Email as OriginalEmail,
-    iu.Email as IdentityEmail,
-    iu.LegacyUserId
-FROM Users u
-LEFT JOIN IdentityUsers iu ON u.Id = iu.LegacyUserId;
+    u."Email" as OriginalEmail,
+    iu."Email" as IdentityEmail,
+    iu."LegacyUserId"
+FROM "Users" u
+LEFT JOIN "IdentityUsers" iu ON u."Id" = iu."LegacyUserId";
 ```
 
 ---

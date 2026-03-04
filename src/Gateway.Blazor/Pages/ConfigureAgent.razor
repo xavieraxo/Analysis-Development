@@ -1,0 +1,204 @@
+@page "/configureagent/{role}"
+@using System.Linq
+@inject IBehaviorApiService BehaviorApi
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject IAuthService AuthService
+
+<PageTitle>Configurar Agente</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudStack Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.h4">@_title</MudText>
+            <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="GoBack">Volver</MudButton>
+        </MudStack>
+
+        @if (!_isAuthorized)
+        {
+            <MudAlert Severity="Severity.Warning">
+                Debes ser Administrador o SuperUsuario para editar comportamientos.
+            </MudAlert>
+        }
+        else if (_isLoading)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else
+        {
+            @if (_fromFallback)
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                    ⚠ Este agente está usando configuración por defecto (fallback desde archivo). Guarda para persistir en BD.
+                </MudAlert>
+            }
+
+            <MudPaper Class="p-4" Elevation="1">
+                <MudForm @ref="_form">
+                    <MudTextField @bind-Value="_alias" Label="Alias" Required="true" For="@(() => _alias)" />
+                    <MudTextField @bind-Value="_prompt" Label="Prompt" Lines="12" Required="true" For="@(() => _prompt)" HelperText="Mínimo 1500 caracteres" />
+
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.h6">Instrucciones (Preguntas y Respuestas)</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Se enviarán junto al prompt.</MudText>
+
+                    <MudStack Spacing="2" Class="mt-2">
+                        @for (int i = 0; i < _instructions.Count; i++)
+                        {
+                            <MudPaper Class="p-3" Elevation="0">
+                                <MudStack Spacing="1">
+                                    <MudTextField @bind-Value="_instructions[i].Question" Label="Pregunta" Required="true" />
+                                    <MudTextField @bind-Value="_instructions[i].Answer" Label="Respuesta" Required="true" />
+                                    <MudButton Color="Color.Error" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Delete" OnClick="@(() => RemoveInstruction(i))">Eliminar</MudButton>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add" OnClick="AddInstruction">Agregar interacción</MudButton>
+                    </MudStack>
+
+                    <MudDivider Class="my-3" />
+                    <MudButton Color="Color.Primary" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Save" Disabled="_saving" OnClick="Save">
+                        @(_saving ? "Guardando..." : "Guardar")
+                    </MudButton>
+                </MudForm>
+            </MudPaper>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    [Parameter] public string role { get; set; } = string.Empty;
+
+    private string _title = "Configurar agente";
+    private bool _isLoading = true;
+    private bool _isAuthorized = false;
+    private bool _saving = false;
+    private AgentRole _role;
+    private string _alias = string.Empty;
+    private string _prompt = string.Empty;
+    private bool _fromFallback;
+    private MudForm? _form;
+    private readonly List<BehaviorInstruction> _instructions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthorized = await IsAdminOrSuperAsync();
+        if (!_isAuthorized)
+        {
+            _isLoading = false;
+            return;
+        }
+
+        if (!Enum.TryParse<AgentRole>(role, true, out _role))
+        {
+            Snackbar.Add($"Rol inválido: {role}", Severity.Error);
+            Navigation.NavigateTo("/behaviors");
+            return;
+        }
+
+        _title = $"Configurar {_role}";
+        await LoadBehavior();
+    }
+
+    private async Task<bool> IsAdminOrSuperAsync()
+    {
+        try
+        {
+            var isAuth = await AuthService.IsAuthenticatedAsync();
+            if (!isAuth) return false;
+            var userRole = AuthService.GetUserRole();
+            return userRole == "Admin" || userRole == "SuperUsuario";
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task LoadBehavior()
+    {
+        _isLoading = true;
+        try
+        {
+            var behavior = await BehaviorApi.GetByRoleAsync(_role);
+            if (behavior != null)
+            {
+                _alias = behavior.Alias;
+                _prompt = behavior.Prompt;
+                _fromFallback = behavior.FromFallback;
+                _instructions.Clear();
+                _instructions.AddRange(behavior.Instructions ?? new List<BehaviorInstruction>());
+            }
+            else
+            {
+                _fromFallback = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void AddInstruction()
+    {
+        _instructions.Add(new BehaviorInstruction());
+    }
+
+    private void RemoveInstruction(int index)
+    {
+        if (index >= 0 && index < _instructions.Count)
+        {
+            _instructions.RemoveAt(index);
+        }
+    }
+
+    private async Task Save()
+    {
+        if (_form is not null)
+        {
+            await _form.Validate();
+            if (!_form.IsValid) return;
+        }
+
+        if (_prompt.Length < 1500)
+        {
+            Snackbar.Add("El prompt debe tener al menos 1500 caracteres.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var payload = new Behavior
+            {
+                AgentRole = _role,
+                Alias = _alias,
+                Prompt = _prompt,
+                Instructions = _instructions.ToList()
+            };
+
+            var result = await BehaviorApi.UpsertAsync(payload);
+            if (result != null)
+            {
+                _fromFallback = result.FromFallback;
+                Snackbar.Add("Comportamiento guardado correctamente.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al guardar: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void GoBack() => Navigation.NavigateTo("/behaviors");
+}
+

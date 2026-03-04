@@ -9,7 +9,7 @@ Migrar gradualmente el sistema de autenticación actual (BCrypt personalizado) a
 
 ### ✅ FASE 1: Preparación y Backup - COMPLETADA
 - [x] Crear branch de backup: `backup-pre-identity`
-- [x] Backup de base de datos: `multiagent.db.backup-[timestamp]`
+- [x] Backup de base de datos (PostgreSQL) con `pg_dump`
 - [x] Documento de seguimiento creado
 
 ### ✅ FASE 2: Instalación de Paquetes - COMPLETADA
@@ -26,8 +26,8 @@ Migrar gradualmente el sistema de autenticación actual (BCrypt personalizado) a
 - [x] Configurar tablas duales
 
 ### ✅ FASE 5: Generar Migración - COMPLETADA
-- [x] Generar script SQL para tablas Identity
-- [x] Tablas creadas en base de datos
+- [x] Generar migraciones EF Core para tablas Identity
+- [x] Tablas creadas en base de datos (PostgreSQL)
 - [x] Datos existentes preservados
 
 ### ✅ FASE 6: Script de Migración de Datos - COMPLETADA
@@ -67,7 +67,7 @@ Migrar gradualmente el sistema de autenticación actual (BCrypt personalizado) a
 
 ### Backups Creados
 - Branch Git: `backup-pre-identity`
-- Base de datos: `src/Gateway.Api/multiagent.db.backup-[timestamp]`
+- Base de datos: `pg_dump` (archivo `.dump`)
 
 ### Reversión
 Si algo sale mal en cualquier fase:
@@ -79,5 +79,5 @@ git checkout backup-pre-identity
 Las contraseñas temporales se guardarán en la respuesta del endpoint `/api/admin/migrate-users`.
 
 ## Próximos Pasos
-Continuar con FASE 2: Instalación de Paquetes
+Continuar con FASE 8: Ejecutar Migración de Datos
 

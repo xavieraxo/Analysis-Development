@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Shared.Abstractions\Shared.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Shared.Knowledge\Shared.Knowledge.csproj" />
     <ProjectReference Include="..\..\src\Agents.PM\Agents.PM.csproj" />
     <ProjectReference Include="..\..\src\Agents.Dev\Agents.Dev.csproj" />
     <ProjectReference Include="..\..\src\Orchestrator.App\Orchestrator.App.csproj" />

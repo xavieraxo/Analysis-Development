@@ -100,13 +100,12 @@ admin@example.com -> Temp3!Abc
 
 #### 7. Verificar la Migración
 
-Puedes verificar que los usuarios se migraron correctamente ejecutando una consulta SQL:
+Puedes verificar que los usuarios se migraron correctamente ejecutando una consulta SQL en PostgreSQL:
 
 ```sql
--- Abrir multiagent.db con DB Browser for SQLite
-SELECT COUNT(*) as TotalOriginal FROM Users;
-SELECT COUNT(*) as TotalMigrado FROM IdentityUsers;
-SELECT Email, Name, Role, IsActive FROM IdentityUsers;
+SELECT COUNT(*) as TotalOriginal FROM "Users";
+SELECT COUNT(*) as TotalMigrado FROM "IdentityUsers";
+SELECT "Email", "Name", "Role", "IsActive" FROM "IdentityUsers";
 ```
 
 ---
@@ -178,8 +177,7 @@ Usa el endpoint `POST /api/auth/change-password` para que los usuarios cambien s
 #### 1. Backup Final
 
 ```powershell
-cd E:\Proyectos\PoC_Analisis_Desarrollo\src\Gateway.Api
-Copy-Item multiagent.db "multiagent.db.before-cleanup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+pg_dump -h localhost -p 5433 -U appuser -d multiagent -F c -f "multiagent.before-cleanup-$(Get-Date -Format 'yyyyMMdd-HHmmss').dump"
 ```
 
 #### 2. Eliminar Referencia a User en Program.cs
@@ -188,14 +186,14 @@ Comentar o eliminar estas líneas si ya no se usan.
 
 #### 3. Eliminar la Tabla Users (SQL)
 
-Abrir `multiagent.db` con DB Browser for SQLite y ejecutar:
+Ejecuta en PostgreSQL:
 
 ```sql
 -- Verificar que IdentityUsers tiene todos los usuarios
-SELECT COUNT(*) FROM IdentityUsers;
+SELECT COUNT(*) FROM "IdentityUsers";
 
 -- Si todo está bien, eliminar tabla Users
-DROP TABLE IF EXISTS Users;
+DROP TABLE IF EXISTS "Users";
 ```
 
 #### 4. Eliminar AuthService.cs (Sistema Antiguo)
@@ -248,8 +246,7 @@ Reinicia la aplicación y todo volverá a funcionar con el sistema anterior.
 ### Opción 2: Restaurar Backup
 
 ```powershell
-cd E:\Proyectos\PoC_Analisis_Desarrollo\src\Gateway.Api
-Copy-Item multiagent.db.backup-* multiagent.db -Force
+pg_restore -h localhost -p 5433 -U appuser -d multiagent -c "multiagent.backup_YYYYMMDD_HHMMSS.dump"
 ```
 
 ### Opción 3: Checkout del Branch de Backup

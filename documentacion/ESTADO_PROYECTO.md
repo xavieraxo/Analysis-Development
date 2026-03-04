@@ -5,6 +5,11 @@
 
 ---
 
+## Chat de GPT
+
+### - https://chatgpt.com/c/68535126-846c-800d-979d-eb2edde4a8c5
+---
+
 ## ✅ Verificación de Funcionamiento
 
 ### 1. Compilación

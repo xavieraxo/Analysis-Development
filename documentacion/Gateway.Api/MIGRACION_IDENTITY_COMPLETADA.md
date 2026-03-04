@@ -68,7 +68,7 @@ Resultado: ✅ EXITOSO
 
 ---
 
-## 🗄️ **ESTADO DE LA BASE DE DATOS**
+## 🗄️ **ESTADO DE LA BASE DE DATOS (PostgreSQL)**
 
 ### **Tablas Existentes:**
 
@@ -137,11 +137,9 @@ Resultado: ✅ EXITOSO
 ### **Opción 2: Restaurar Backup de BD (Completo)**
 
 ```powershell
-cd E:\Proyectos\PoC_Analisis_Desarrollo\src\Gateway.Api
-
 # Detener aplicación primero
 # Restaurar backup (reemplazar YYYYMMDD_HHMMSS con tu timestamp)
-Copy-Item multiagent.db.backup_YYYYMMDD_HHMMSS multiagent.db -Force
+pg_restore -h localhost -p 5433 -U appuser -d multiagent -c "multiagent.backup_YYYYMMDD_HHMMSS.dump"
 ```
 
 ---
@@ -173,20 +171,20 @@ Copy-Item multiagent.db.backup_YYYYMMDD_HHMMSS multiagent.db -Force
 
 ```sql
 -- Ver usuarios en tabla original
-SELECT Id, Email, Name, Role FROM Users;
+SELECT "Id", "Email", "Name", "Role" FROM "Users";
 
 -- Ver usuarios migrados a Identity
-SELECT Id, UserName, Email, Role, LegacyUserId FROM IdentityUsers;
+SELECT "Id", "UserName", "Email", "Role", "LegacyUserId" FROM "IdentityUsers";
 
 -- Ver relación de migración
 SELECT 
-    u.Email as OriginalEmail,
-    iu.Email as IdentityEmail,
-    iu.LegacyUserId,
-    u.Role as OriginalRole,
-    iu.Role as IdentityRole
-FROM Users u
-LEFT JOIN IdentityUsers iu ON u.Id = iu.LegacyUserId;
+    u."Email" as OriginalEmail,
+    iu."Email" as IdentityEmail,
+    iu."LegacyUserId",
+    u."Role" as OriginalRole,
+    iu."Role" as IdentityRole
+FROM "Users" u
+LEFT JOIN "IdentityUsers" iu ON u."Id" = iu."LegacyUserId";
 ```
 
 ---

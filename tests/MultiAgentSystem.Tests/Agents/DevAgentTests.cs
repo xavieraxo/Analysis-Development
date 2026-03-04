@@ -14,7 +14,8 @@ public class DevAgentTests
     {
         // Arrange
         var llm = new FakeLlmClient("Diseño técnico");
-        var agent = new DevAgent(llm);
+        var behaviorProvider = new FakeBehaviorProvider("Eres un desarrollador .NET. Prompt test");
+        var agent = new DevAgent(llm, behaviorProvider);
         var context = new ChatMessage("conv-dev", AgentRole.User, "Necesito un API", DateTimeOffset.UtcNow);
         var turn = new AgentTurn("conv-dev", AgentRole.Dev, context, CancellationToken.None);
 

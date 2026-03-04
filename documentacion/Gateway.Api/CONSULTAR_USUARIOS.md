@@ -2,9 +2,9 @@
 
 ## Estado Actual
 
-La base de datos SQLite se crea automáticamente cuando ejecutas **Gateway.Api** por primera vez.
+La base de datos por defecto es **PostgreSQL** y se crea mediante migraciones al iniciar **Gateway.Api**.
 
-**Ubicación de la base de datos:** `src/Gateway.Api/multiagent.db`
+**Conexión por defecto:** `Host=localhost;Port=5433;Database=multiagent;Username=appuser;Password=appsecret`
 
 ## Cómo se Crean los Usuarios
 
@@ -17,7 +17,7 @@ El SuperUsuario se crea **automáticamente** cuando:
 - Email: `superuser@system.local`
 - Name: `Super Usuario`
 - Role: `SuperUsuario`
-- Password: `superuser` (hasheado con BCrypt)
+- Password: se define al crear el usuario (con Identity). Para login con hash, la contraseña no se valida.
 
 ### 2. Usuarios Normales
 Los usuarios normales se crean:
@@ -64,20 +64,18 @@ Los usuarios normales se crean:
    - Haz clic en "Execute" en el endpoint `GET /api/admin/users`
    - Verás la lista completa de usuarios en formato JSON
 
-### Método 3: Consultar Base de Datos Directamente (SQLite - Requiere instalación)
+### Método 3: Consultar Base de Datos Directamente (PostgreSQL)
 
-Si tienes SQLite instalado en Windows, puedes usar PowerShell:
-
+**Opción A: psql (si lo tienes instalado)**
 ```powershell
-# Instalar SQLite (si no lo tienes)
-# Descarga desde: https://www.sqlite.org/download.html
-# O instala desde Chocolatey: choco install sqlite
-
-# Ejecutar consulta
-sqlite3.exe src\Gateway.Api\multiagent.db "SELECT Id, Email, Name, Role, IsActive, CreatedAt FROM Users;"
+psql -h localhost -p 5433 -U appuser -d multiagent -c "SELECT \"Id\", \"Email\", \"Name\", \"Role\", \"IsActive\", \"CreatedAt\" FROM \"Users\";"
 ```
 
-### Método 3: Desde la Interfaz Blazor
+**Opción B: pgAdmin u otra herramienta**
+- Conecta a `localhost:5433`, DB `multiagent`, usuario `appuser`
+- Ejecuta la consulta anterior
+
+### Método 4: Desde la Interfaz Blazor
 
 Si estás autenticado como SuperUsuario o Admin:
 1. Ve a `/admin/users` en el navegador
@@ -105,5 +103,5 @@ Si estás autenticado como SuperUsuario o Admin:
 
 ## Nota Importante
 
-Si la base de datos no existe aún, simplemente **ejecuta Gateway.Api una vez** y la base de datos se creará automáticamente.
+Si la base de datos no existe aún, simplemente **ejecuta Gateway.Api una vez** y las migraciones la crearán automáticamente.
 

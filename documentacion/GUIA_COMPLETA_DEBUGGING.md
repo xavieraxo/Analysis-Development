@@ -45,7 +45,7 @@ Este es un **sistema multi-agente** con arquitectura de cliente-servidor:
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │  - Orchestrator.App (Coordinador de agentes)             │  │
 │  │  - Agents.* (UR, PM, PO, Dev, UX)                        │  │
-│  │  - Database: SQLite (multiagent.db)                      │  │
+│  │  - Database: PostgreSQL                                  │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └────────────────────────┬────────────────────────────────────────┘
                          │ HTTP Requests (Opcional)
@@ -77,7 +77,7 @@ Este es un **sistema multi-agente** con arquitectura de cliente-servidor:
 - **Responsabilidades**:
   - API REST completa
   - Autenticación JWT
-  - Base de datos SQLite
+  - Base de datos PostgreSQL
   - Lógica de negocio
   - Coordinación de agentes
 
@@ -126,7 +126,7 @@ Este es un **sistema multi-agente** con arquitectura de cliente-servidor:
    └─ Llama a AuthService.LoginAsync() (backend)
 
 5. AuthService (backend)
-   └─ Valida credenciales contra base de datos SQLite
+   └─ Valida credenciales contra base de datos PostgreSQL
    └─ Genera token JWT
    └─ Retorna LoginResponse con token y datos del usuario
 
@@ -196,11 +196,10 @@ Este es un **sistema multi-agente** con arquitectura de cliente-servidor:
     ```
 
 #### **Gateway.Api → Base de Datos**
-- **Método**: Entity Framework Core con SQLite
+- **Método**: Entity Framework Core con PostgreSQL (Npgsql)
 - **Configuración**:
   - Archivo: `src/Gateway.Api/appsettings.json`
-  - Connection String: `"ConnectionStrings": { "DefaultConnection": "Data Source=multiagent.db" }`
-  - Base de datos: `src/Gateway.Api/multiagent.db`
+  - Connection String: `"ConnectionStrings": { "DefaultConnection": "Host=localhost;Port=5433;Database=multiagent;Username=appuser;Password=appsecret" }`
 
 #### **Gateway.Api → Ollama (Opcional)**
 - **Método**: HTTP REST
@@ -227,7 +226,7 @@ Este es un **sistema multi-agente** con arquitectura de cliente-servidor:
    - Verificar: `docker --version`
    - Si no está instalado: https://www.docker.com/products/docker-desktop
 
-4. **SQLite** (Ya incluido en .NET, no requiere instalación adicional)
+4. **PostgreSQL** (via Docker Compose o instalación local)
 
 ### 3.2 Verificar Estado del Proyecto
 
@@ -291,13 +290,14 @@ dotnet clean
 
 ### 3.4 Verificar Base de Datos
 
-La base de datos SQLite se crea automáticamente cuando Gateway.Api inicia por primera vez.
+La base de datos PostgreSQL se crea mediante migraciones al iniciar Gateway.Api.
 
-**Ubicación**: `src/Gateway.Api/multiagent.db`
+**Conexión por defecto**: `Host=localhost;Port=5433;Database=multiagent;Username=appuser;Password=appsecret`
 
 **Verificar que existe**:
 ```powershell
-Test-Path "src/Gateway.Api/multiagent.db"
+# Verificar conectividad al Postgres local
+Test-NetConnection -ComputerName localhost -Port 5433
 ```
 
 **Si no existe, se creará automáticamente** cuando Gateway.Api inicie.
@@ -553,7 +553,7 @@ Antes de intentar hacer login, verifica:
 
 - [ ] Gateway.Api está corriendo en `http://localhost:8096`
 - [ ] Gateway.Blazor está corriendo en `http://localhost:8098`
-- [ ] La base de datos `multiagent.db` existe
+- [ ] La base de datos PostgreSQL está activa (puerto `5433`)
 - [ ] No hay errores en las consolas de los proyectos
 - [ ] Los puertos 8096 y 8098 no están siendo usados por otro proceso
 
@@ -616,16 +616,15 @@ Antes de intentar hacer login, verifica:
 
 #### **Ver usuarios en la base de datos**
 
-**Opción 1: SQLite Command Line**
+**Opción 1: psql (si lo tienes instalado)**
 ```powershell
-# Si tienes SQLite CLI instalado
-sqlite3 src/Gateway.Api/multiagent.db "SELECT Id, Email, Name, Role, IsActive FROM Users;"
+psql -h localhost -p 5433 -U appuser -d multiagent -c "SELECT \"Id\", \"Email\", \"Name\", \"Role\", \"IsActive\" FROM \"Users\";"
 ```
 
-**Opción 2: Usar una herramienta gráfica**
-- **DB Browser for SQLite**: https://sqlitebrowser.org/
-- Abre el archivo: `src/Gateway.Api/multiagent.db`
-- Navega a la tabla "Users"
+**Opción 2: Herramienta gráfica**
+- **pgAdmin** o tu cliente PostgreSQL favorito
+- Conecta a `localhost:5433`, DB `multiagent`, usuario `appuser`
+- Ejecuta la consulta anterior
 
 **Opción 3: Desde Swagger**
 - Si estás autenticado como SuperUsuario
@@ -790,10 +789,10 @@ error: Gateway.Api.Services.AuthService[0]
 - La carpeta wwwroot no existe
 - **Solución**: Se puede ignorar si Gateway.Api es solo una API (no sirve archivos estáticos)
 
-**"Cannot open database file"**
-- Error al acceder a la base de datos SQLite
-- **Verifica**: Permisos de archivo en `src/Gateway.Api/multiagent.db`
-- **Solución**: Elimina el archivo y deja que se recree
+**"No se puede conectar a PostgreSQL"**
+- Verifica que el contenedor de Postgres esté activo
+- Verifica la cadena de conexión en `src/Gateway.Api/appsettings.json`
+- Verifica el puerto `5433` en `infra/docker-compose.yml`
 
 ### 7.5 Problema: "Gateway.Blazor no puede conectarse a Gateway.Api"
 
@@ -889,7 +888,7 @@ dotnet run
 
 - **Frontend**: La parte del sistema que el usuario ve y con la que interactúa (Gateway.Blazor)
 - **Backend**: La parte del sistema que procesa la lógica de negocio (Gateway.Api)
-- **Base de datos**: Almacenamiento persistente de datos (SQLite en este caso)
+- **Base de datos**: Almacenamiento persistente de datos (PostgreSQL por defecto)
 
 ### **Procesos**
 

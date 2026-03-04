@@ -2,6 +2,10 @@
 
 Sistema multi-agente donde varios modelos (agentes) asumen roles distintos y colaboran para resolver tareas de desarrollo.
 
+## Documentación
+
+Toda la documentación adicional está organizada en [`documentacion/`](documentacion/), con subcarpetas por proyecto (Gateway.Api, Gateway.Blazor, Orchestrator.App, Agents.*, Shared.*).
+
 ## Arquitectura
 
 El sistema está compuesto por:

@@ -14,7 +14,7 @@
 - ✅ `src/Gateway.Api/Data/Models/ApplicationRole.cs` - Modelo de rol para Identity
 - ✅ `src/Gateway.Api/Services/UserMigrationService.cs` - Servicio de migración de datos
 - ✅ `src/Gateway.Api/Services/AuthServiceIdentity.cs` - Implementación de auth con Identity
-- ✅ `src/Gateway.Api/create_identity_tables.sql` - Script SQL para tablas Identity
+- ✅ Migraciones EF Core para tablas Identity
 - ✅ `PLAN_MIGRACION_IDENTITY.md` - Plan de seguimiento
 - ✅ `INSTRUCCIONES_MIGRACION.md` - Guía completa de ejecución
 
@@ -25,7 +25,7 @@
 - ✅ `src/Gateway.Api/appsettings.json` - Flag `UseIdentityAuth` agregado
 
 #### Base de Datos:
-- ✅ Backup creado: `multiagent.db.backup-[timestamp]`
+- ✅ Backup recomendado: `pg_dump` (PostgreSQL)
 - ✅ Tablas de Identity creadas:
   - `IdentityUsers`
   - `IdentityRoles`
@@ -143,15 +143,14 @@ http://localhost:5000/swagger
 
 ## 📊 Estado Actual del Proyecto
 
-### Base de Datos:
+### Base de Datos (PostgreSQL):
 ```
-multiagent.db
-├── Users (Original - BCrypt) ✅ Intacta
-├── IdentityUsers (Nueva - Vacía) ⏳ Lista para migración
-├── IdentityRoles (Nueva) ✅
-├── Projects (Sin cambios) ✅
-├── ProjectLogs (Sin cambios) ✅
-└── SystemConfigurations (Sin cambios) ✅
+Users (Original - BCrypt) ✅ Intacta
+IdentityUsers (Nueva) ✅
+IdentityRoles (Nueva) ✅
+Projects (Sin cambios) ✅
+ProjectLogs (Sin cambios) ✅
+SystemConfigurations (Sin cambios) ✅
 ```
 
 ### Autenticación:
@@ -201,7 +200,7 @@ Reinicia y todo vuelve al sistema BCrypt.
 
 ### Opción 2: Restaurar Backup de BD
 ```powershell
-Copy-Item multiagent.db.backup-* multiagent.db -Force
+pg_restore -h localhost -p 5433 -U appuser -d multiagent -c "multiagent.backup_YYYYMMDD_HHMMSS.dump"
 ```
 
 ### Opción 3: Checkout del Branch

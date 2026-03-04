@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Data;
 using Data.Models;
 using Gateway.Api.DTOs;
 using Microsoft.AspNetCore.Identity;
@@ -17,18 +18,21 @@ public class AuthServiceIdentity : IAuthService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IConfiguration _configuration;
+    private readonly ApplicationDbContext _db;
     private readonly ILogger<AuthServiceIdentity> _logger;
 
     public AuthServiceIdentity(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         IConfiguration configuration,
-        ILogger<AuthServiceIdentity> logger)
+        ILogger<AuthServiceIdentity> logger,
+        ApplicationDbContext db)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
         _logger = logger;
+        _db = db;
     }
 
     public async Task<LoginResponse?> LoginAsync(LoginRequest request)
@@ -60,6 +64,10 @@ public class AuthServiceIdentity : IAuthService
 
         // Login normal con Identity
         var user = await _userManager.FindByEmailAsync(emailTrimmed);
+        if (user == null)
+        {
+            user = await TryMigrateLegacyUserAsync(emailTrimmed, request.Password);
+        }
         
         if (user == null || !user.IsActive)
         {
@@ -73,6 +81,7 @@ public class AuthServiceIdentity : IAuthService
         if (result.Succeeded)
         {
             user.LastLoginAt = DateTime.UtcNow;
+            await EnsureLegacyUserLinkAsync(user);
             await _userManager.UpdateAsync(user);
 
             _logger.LogInformation($"Login exitoso con Identity: {user.Email}");
@@ -128,6 +137,7 @@ public class AuthServiceIdentity : IAuthService
 
         // SuperUsuario se autentica solo con el hash, sin validar contraseña
         superUser.LastLoginAt = DateTime.UtcNow;
+        await EnsureLegacyUserLinkAsync(superUser);
         await _userManager.UpdateAsync(superUser);
 
         _logger.LogInformation($"Login exitoso de SuperUsuario con hash");
@@ -304,13 +314,18 @@ public class AuthServiceIdentity : IAuthService
             Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "your-secret-key-min-32-characters-long-for-security"));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
             new Claim(ClaimTypes.Name, user.Name),
             new Claim(ClaimTypes.Role, user.Role.ToString())
         };
+
+        if (user.LegacyUserId.HasValue)
+        {
+            claims.Add(new Claim("legacy_user_id", user.LegacyUserId.Value.ToString()));
+        }
 
         var token = new JwtSecurityToken(
             issuer: _configuration["Jwt:Issuer"] ?? "MultiAgentSystem",
@@ -332,6 +347,71 @@ public class AuthServiceIdentity : IAuthService
             user.IsActive,
             user.CreatedAt,
             user.LastLoginAt);
+    }
+
+    private async Task EnsureLegacyUserLinkAsync(ApplicationUser identityUser)
+    {
+        if (identityUser.LegacyUserId.HasValue)
+            return;
+
+        var emailNorm = (identityUser.Email ?? string.Empty).Trim().ToLowerInvariant();
+        var legacy = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == emailNorm);
+        if (legacy == null)
+        {
+            legacy = new User
+            {
+                Email = emailNorm,
+                Name = identityUser.Name,
+                Role = identityUser.Role,
+                IsActive = identityUser.IsActive,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N"))
+            };
+            _db.Users.Add(legacy);
+            await _db.SaveChangesAsync();
+        }
+
+        identityUser.LegacyUserId = legacy.Id;
+    }
+
+    private async Task<ApplicationUser?> TryMigrateLegacyUserAsync(string email, string password)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            return null;
+        }
+
+        var emailNorm = email.Trim().ToLowerInvariant();
+        var legacy = await _db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == emailNorm);
+        if (legacy == null || !legacy.IsActive)
+        {
+            return null;
+        }
+
+        if (!BCrypt.Net.BCrypt.Verify(password, legacy.PasswordHash))
+        {
+            return null;
+        }
+
+        var user = new ApplicationUser
+        {
+            UserName = emailNorm,
+            Email = emailNorm,
+            Name = legacy.Name,
+            Role = legacy.Role,
+            IsActive = legacy.IsActive,
+            EmailConfirmed = true,
+            LegacyUserId = legacy.Id
+        };
+
+        var result = await _userManager.CreateAsync(user, password);
+        if (result.Succeeded)
+        {
+            _logger.LogInformation($"Usuario legacy migrado a Identity: {emailNorm}");
+            return user;
+        }
+
+        _logger.LogError($"Error al migrar usuario legacy: {emailNorm}. {string.Join(", ", result.Errors.Select(e => e.Description))}");
+        return null;
     }
 }
 

@@ -195,11 +195,11 @@ Usa este checklist cuando algo no funciona. Sigue los pasos en orden y marca cad
 □ Verificar Usuario en la Base de Datos
    □ Opción 1: Desde Swagger (si estás autenticado como SuperUsuario)
       → GET /api/admin/users
-   □ Opción 2: Desde SQLite (si tienes SQLite CLI)
-      → sqlite3 src/Gateway.Api/multiagent.db "SELECT Email, Name, Role FROM Users;"
-   □ Opción 3: Desde DB Browser for SQLite
-      → Abre: src/Gateway.Api/multiagent.db
-      → Tabla: Users
+   □ Opción 2: Desde PostgreSQL (psql)
+      → psql -h localhost -p 5433 -U appuser -d multiagent -c "SELECT \"Email\", \"Name\", \"Role\" FROM \"Users\";"
+   □ Opción 3: Desde pgAdmin
+      → Conecta a localhost:5433, DB multiagent
+      → Ejecuta la consulta anterior
 
 □ Crear Usuario si no existe
    □ Opción 1: Registro público
@@ -221,9 +221,9 @@ Usa este checklist cuando algo no funciona. Sigue los pasos en orden y marca cad
 □ Errores Comunes:
    □ "DirectoryNotFoundException: wwwroot"
       → Ignorar si Gateway.Api es solo una API
-   □ "Cannot open database file"
-      → Verifica permisos en: src/Gateway.Api/multiagent.db
-      → Elimina el archivo y deja que se recree
+   □ "No se puede conectar a PostgreSQL"
+      → Verifica que el contenedor esté activo
+      → Verifica el puerto `5433` y la cadena de conexión
    □ "NullReferenceException"
       → Revisa el código en el punto donde falla
    □ Otro error

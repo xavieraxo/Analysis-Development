@@ -2,19 +2,14 @@
 
 ## 🔴 Causa Principal: Recreación de Base de Datos
 
-**Ubicación:** `src/Gateway.Api/Program.cs` (líneas 156-160)
+**Ubicación:** `src/Gateway.Api/Program.cs`
 
 ```csharp
-if (app.Environment.IsDevelopment())
-{
-    db.Database.EnsureDeleted(); // Eliminar base de datos existente
-}
-db.Database.EnsureCreated(); // Crear base de datos con el esquema actualizado
+db.Database.Migrate(); // Aplica migraciones pendientes
 ```
 
 ### Problema:
-- **`EnsureDeleted()`**: Elimina completamente la base de datos SQLite cada vez que inicia
-- **`EnsureCreated()`**: Crea toda la estructura de la base de datos desde cero
+- **Recrear esquema** en cada inicio era costoso y bloqueaba el arranque
 - Esto puede tomar varios segundos dependiendo de:
   - Tamaño del esquema (tablas, índices, foreign keys)
   - Complejidad del modelo de datos
@@ -24,20 +19,8 @@ db.Database.EnsureCreated(); // Crear base de datos con el esquema actualizado
 Usar migraciones de EF Core en lugar de recrear la base de datos:
 
 ```csharp
-// Opción 1: Usar migraciones (más eficiente)
-if (app.Environment.IsDevelopment())
-{
-    db.Database.Migrate(); // Aplica solo cambios necesarios
-}
-
-// Opción 2: Solo crear si no existe (sin eliminar)
-db.Database.EnsureCreated();
-
-// Opción 3: Comentar EnsureDeleted() para desarrollo más rápido
-// if (app.Environment.IsDevelopment())
-// {
-//     db.Database.EnsureDeleted(); // Comentar para no eliminar cada vez
-// }
+// Usar migraciones (más eficiente)
+db.Database.Migrate(); // Aplica solo cambios necesarios
 ```
 
 ## ⚠️ Otras Posibles Causas
@@ -79,9 +62,8 @@ options.JSInteropDefaultCallTimeout = TimeSpan.FromMinutes(1);
 - Validación de JWT configurada, pero no debería ejecutarse al iniciar
 - Solo se ejecuta cuando hay una petición con token
 
-### 5. Conexión a Base de Datos SQLite
-- SQLite es generalmente rápido
-- Pero `EnsureDeleted()` + `EnsureCreated()` puede ser costoso si hay muchos datos o esquema complejo
+### 5. Conexión a Base de Datos PostgreSQL
+- Postgres es estable, pero la conexión puede demorar si el contenedor aún no está listo
 
 ## 📊 Prioridades para Optimizar
 

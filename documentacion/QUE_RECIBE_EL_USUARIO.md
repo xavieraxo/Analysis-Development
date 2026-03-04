@@ -58,7 +58,7 @@ Criterios de aceptación:
 Diseño técnico:
 - Backend: ASP.NET Core Minimal API
 - Frontend: Blazor Server
-- Base de datos: SQLite (desarrollo) / PostgreSQL (producción)
+- Base de datos: PostgreSQL (por defecto)
 
 Endpoints propuestos:
 GET /api/tasks
