@@ -55,6 +55,57 @@ public class DevFlowService : IDevFlowService
         return MapToDetailResponse(run);
     }
 
+    public async Task<PagedResponse<DevFlowRunListItem>?> GetRunsAsync(DevFlowRunsQueryParams query)
+    {
+        if (query.PageSize < 1 || query.PageSize > 100)
+            return null;
+        if (query.Page < 1)
+            return null;
+
+        var q = _context.DevFlowRuns.AsNoTracking();
+
+        if (query.ProjectId.HasValue)
+            q = q.Where(r => r.ProjectId == query.ProjectId.Value);
+        if (query.Status.HasValue)
+            q = q.Where(r => r.Status == query.Status.Value);
+        if (query.Stage.HasValue)
+            q = q.Where(r => r.CurrentStage == query.Stage.Value);
+        if (query.CreatedByUserId.HasValue)
+            q = q.Where(r => r.CreatedByUserId == query.CreatedByUserId.Value);
+        if (query.FromDate.HasValue)
+            q = q.Where(r => r.CreatedAt >= query.FromDate.Value);
+        if (query.ToDate.HasValue)
+            q = q.Where(r => r.CreatedAt <= query.ToDate.Value);
+
+        var total = await q.CountAsync();
+
+        var items = await q
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .Select(r => new DevFlowRunListItem
+            {
+                Id = r.Id,
+                ProjectId = r.ProjectId,
+                Title = r.Title,
+                Status = r.Status,
+                CurrentStage = r.CurrentStage,
+                CreatedAt = r.CreatedAt,
+                UpdatedAt = r.UpdatedAt,
+                ArtifactsCount = r.Artifacts.Count,
+                GatesCount = r.Gates.Count
+            })
+            .ToListAsync();
+
+        return new PagedResponse<DevFlowRunListItem>
+        {
+            Items = items,
+            Page = query.Page,
+            PageSize = query.PageSize,
+            Total = total
+        };
+    }
+
     private static DevFlowRunResponse MapToResponse(DevFlowRun run) => new()
     {
         Id = run.Id,
