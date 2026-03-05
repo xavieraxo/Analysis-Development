@@ -41,6 +41,20 @@ public class DevFlowService : IDevFlowService
         return MapToResponse(run);
     }
 
+    public async Task<DevFlowRunDetailResponse?> GetRunByIdAsync(int id)
+    {
+        var run = await _context.DevFlowRuns
+            .AsNoTracking()
+            .Include(r => r.Artifacts)
+            .Include(r => r.Gates)
+            .FirstOrDefaultAsync(r => r.Id == id);
+
+        if (run == null)
+            return null;
+
+        return MapToDetailResponse(run);
+    }
+
     private static DevFlowRunResponse MapToResponse(DevFlowRun run) => new()
     {
         Id = run.Id,
@@ -51,5 +65,44 @@ public class DevFlowService : IDevFlowService
         CurrentStage = run.CurrentStage,
         CreatedAt = run.CreatedAt,
         UpdatedAt = run.UpdatedAt
+    };
+
+    private static DevFlowRunDetailResponse MapToDetailResponse(DevFlowRun run) => new()
+    {
+        Id = run.Id,
+        ProjectId = run.ProjectId,
+        Title = run.Title,
+        Description = run.Description,
+        Status = run.Status,
+        CurrentStage = run.CurrentStage,
+        CreatedByUserId = run.CreatedByUserId,
+        CreatedAt = run.CreatedAt,
+        UpdatedAt = run.UpdatedAt,
+        Artifacts = run.Artifacts
+            .OrderBy(a => a.Stage)
+            .ThenBy(a => a.CreatedAt)
+            .Select(a => new DevFlowArtifactSummaryDto
+            {
+                Id = a.Id,
+                Stage = a.Stage,
+                AgentRole = a.AgentRole,
+                Version = a.Version,
+                CreatedAt = a.CreatedAt
+            })
+            .ToList(),
+        Gates = run.Gates
+            .OrderBy(g => g.Stage)
+            .ThenBy(g => g.CreatedAt)
+            .Select(g => new DevFlowGateSummaryDto
+            {
+                Id = g.Id,
+                Stage = g.Stage,
+                Status = g.Status,
+                DecisionComment = g.DecisionComment,
+                DecidedByUserId = g.DecidedByUserId,
+                DecidedAt = g.DecidedAt,
+                CreatedAt = g.CreatedAt
+            })
+            .ToList()
     };
 }
