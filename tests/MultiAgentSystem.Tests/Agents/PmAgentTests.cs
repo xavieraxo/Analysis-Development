@@ -13,7 +13,8 @@ public class PmAgentTests
     {
         // Arrange
         var llm = new FakeLlmClient("Plan de prueba");
-        var agent = new PmAgent(llm);
+        var behaviorProvider = new FakeBehaviorProvider("Eres un Project Manager. Prompt test");
+        var agent = new PmAgent(llm, behaviorProvider);
         var context = new ChatMessage("conv-1", AgentRole.User, "Necesito un plan", DateTimeOffset.UtcNow);
         var turn = new AgentTurn("conv-1", AgentRole.PM, context, CancellationToken.None);
 

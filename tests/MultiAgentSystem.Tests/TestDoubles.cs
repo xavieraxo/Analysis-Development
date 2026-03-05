@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Shared.Abstractions;
@@ -44,5 +45,35 @@ internal sealed class TestAgent : IAgent
         var response = _responses.Count > 0 ? _responses.Dequeue() : $"respuesta-{Role}";
         var message = new ChatMessage(turn.ConversationId, Role, response, DateTimeOffset.UtcNow);
         return Task.FromResult(message);
+    }
+}
+
+internal sealed class FakeBehaviorProvider : IBehaviorProvider
+{
+    private readonly BehaviorProfile _profile;
+
+    public FakeBehaviorProvider(string prompt = "prompt-fake")
+    {
+        _profile = new BehaviorProfile
+        {
+            Role = AgentRole.Dev,
+            Alias = "alias-fake",
+            Prompt = prompt,
+            Instructions = new List<BehaviorInstruction>(),
+            FromFallback = false
+        };
+    }
+
+    public Task<BehaviorProfile> GetBehaviorAsync(AgentRole role, CancellationToken ct = default)
+    {
+        var clone = new BehaviorProfile
+        {
+            Role = role,
+            Alias = _profile.Alias,
+            Prompt = _profile.Prompt,
+            Instructions = _profile.Instructions.ToList(),
+            FromFallback = _profile.FromFallback
+        };
+        return Task.FromResult(clone);
     }
 }

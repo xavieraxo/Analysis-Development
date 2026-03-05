@@ -1,0 +1,92 @@
+@page "/verify-code"
+@using Microsoft.AspNetCore.WebUtilities
+@inject IApiService ApiService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Verificar código</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-12">
+    <MudPaper Elevation="3" Class="pa-6">
+        <MudText Typo="Typo.h5" GutterBottom="true" Align="Align.Center">Ingresa el código</MudText>
+        <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary">
+            Revisa tu correo y escribe el código de 6 caracteres.
+        </MudText>
+
+        <MudForm @ref="_form" OnValidSubmit="Verify" Class="mt-4">
+            <MudTextField @bind-Value="_email"
+                          Label="Email"
+                          Variant="Variant.Outlined"
+                          FullWidth="true"
+                          InputType="InputType.Email"
+                          Required="true"
+                          For="@(() => _email)" />
+
+            <MudTextField @bind-Value="_code"
+                          Label="Código"
+                          Variant="Variant.Outlined"
+                          FullWidth="true"
+                          InputType="InputType.Text"
+                          MaxLength="6"
+                          Required="true"
+                          For="@(() => _code)" />
+
+            <MudButton Type="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Class="mt-4"
+                       Disabled="_loading">
+                @(_loading ? "Verificando..." : "Verificar código")
+            </MudButton>
+        </MudForm>
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-4">@_message</MudAlert>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private string _email = string.Empty;
+    private string _code = string.Empty;
+    private bool _loading;
+    private string _message = string.Empty;
+    private MudForm? _form;
+
+    protected override void OnInitialized()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("email", out var emailParam))
+        {
+            _email = emailParam.ToString();
+        }
+    }
+
+    private async Task Verify()
+    {
+        if (_form is null) return;
+        await _form.Validate();
+        if (!_form.IsValid) return;
+
+        _loading = true;
+        try
+        {
+            await ApiService.PostAsync<object>("/api/auth/verify-code", new { Email = _email, Code = _code });
+            _message = "Código verificado. Continúa para redefinir tu contraseña.";
+            Snackbar.Add(_message, Severity.Success);
+            Navigation.NavigateTo($"/reset-password?email={Uri.EscapeDataString(_email)}&code={Uri.EscapeDataString(_code)}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Código inválido o expirado: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
+

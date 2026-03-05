@@ -2,10 +2,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Shared.Abstractions;
 
 namespace MultiAgentSystem.Tests.Gateway;
@@ -27,18 +29,18 @@ public class GatewayApiTests : IClassFixture<GatewayApiFactory>
         var request = new ChatMessage("conv-gateway", AgentRole.User, "Necesito un MVP", DateTimeOffset.UtcNow);
 
         // Act
-        var response = await client.PostAsJsonAsync("/chat/run", request);
+        var response = await client.PostAsJsonAsync("/api/chat/run", request);
+        var body = await response.Content.ReadAsStringAsync();
 
-        // Assert
-        response.EnsureSuccessStatusCode();
-        var messages = await response.Content.ReadFromJsonAsync<List<ChatMessage>>();
+        Assert.True(response.IsSuccessStatusCode, $"Status: {response.StatusCode}, Body: {body}");
+        var chatResponse = await response.Content.ReadFromJsonAsync<ChatResponse>();
 
-        Assert.NotNull(messages);
-        Assert.Equal(3, messages.Count);
-        Assert.Equal(new[] { AgentRole.PM, AgentRole.Dev, AgentRole.PM }, messages.Select(m => m.From).ToArray());
-        Assert.Equal("Plan test", messages![0].Text);
-        Assert.Equal("Implementación test", messages[1].Text);
-        Assert.Equal("Cierre test", messages[2].Text);
+        Assert.NotNull(chatResponse);
+        Assert.Equal("respuesta-fake", chatResponse!.Summary.Text);
+        Assert.Equal(new[] { AgentRole.UR, AgentRole.PM, AgentRole.PO, AgentRole.UX, AgentRole.Dev, AgentRole.PM },
+            chatResponse.InternalConversations.Select(m => m.From).ToArray());
+        Assert.Equal(new[] { "UR test", "Plan test", "PO test", "UX test", "Implementación test", "Cierre test" },
+            chatResponse.InternalConversations.Select(m => m.Text).ToArray());
     }
 }
 
@@ -50,9 +52,19 @@ public class GatewayApiFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<IAgent>();
             services.RemoveAll<ILlmClient>();
+            services.RemoveAll<IConfigureOptions<AuthenticationOptions>>();
+
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = "Test";
+                options.DefaultChallengeScheme = "Test";
+            }).AddScheme<AuthenticationSchemeOptions, TestAuthHandler>("Test", _ => { });
 
             services.AddSingleton<IAgent>(new TestAgent(AgentRole.PM, "Plan test", "Cierre test"));
             services.AddSingleton<IAgent>(new TestAgent(AgentRole.Dev, "Implementación test"));
+            services.AddSingleton<IAgent>(new TestAgent(AgentRole.UR, "UR test"));
+            services.AddSingleton<IAgent>(new TestAgent(AgentRole.PO, "PO test"));
+            services.AddSingleton<IAgent>(new TestAgent(AgentRole.UX, "UX test"));
             services.AddSingleton<ILlmClient>(new FakeLlmClient());
         });
     }

@@ -40,18 +40,50 @@ public class ApiService : IApiService
         return await Task.FromResult(request);
     }
 
-    public async Task<T?> GetAsync<T>(string endpoint)
+    private async Task ThrowIfNotSuccessAsync(HttpResponseMessage response)
     {
-        var request = await CreateRequestAsync(HttpMethod.Get, endpoint);
-        var response = await _httpClient.SendAsync(request);
-        
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             await _authService.LogoutAsync();
             throw new UnauthorizedAccessException("Sesión expirada");
         }
 
-        response.EnsureSuccessStatusCode();
+        string? message = null;
+        var content = await response.Content.ReadAsStringAsync();
+        if (!string.IsNullOrWhiteSpace(content))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(content);
+                if (doc.RootElement.TryGetProperty("message", out var msg))
+                {
+                    message = msg.GetString();
+                }
+                else if (doc.RootElement.TryGetProperty("title", out var title))
+                {
+                    message = title.GetString();
+                }
+            }
+            catch
+            {
+                message = content;
+            }
+        }
+
+        message ??= $"Error HTTP {(int)response.StatusCode}";
+        throw new InvalidOperationException(message);
+    }
+
+    public async Task<T?> GetAsync<T>(string endpoint)
+    {
+        var request = await CreateRequestAsync(HttpMethod.Get, endpoint);
+        var response = await _httpClient.SendAsync(request);
+        await ThrowIfNotSuccessAsync(response);
         
         if (response.Content.Headers.ContentLength == 0)
             return default;
@@ -64,14 +96,7 @@ public class ApiService : IApiService
     {
         var request = await CreateRequestAsync(HttpMethod.Post, endpoint, data);
         var response = await _httpClient.SendAsync(request);
-        
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            await _authService.LogoutAsync();
-            throw new UnauthorizedAccessException("Sesión expirada");
-        }
-
-        response.EnsureSuccessStatusCode();
+        await ThrowIfNotSuccessAsync(response);
         
         if (response.Content.Headers.ContentLength == 0)
             return default;
@@ -84,14 +109,7 @@ public class ApiService : IApiService
     {
         var request = await CreateRequestAsync(HttpMethod.Put, endpoint, data);
         var response = await _httpClient.SendAsync(request);
-        
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            await _authService.LogoutAsync();
-            throw new UnauthorizedAccessException("Sesión expirada");
-        }
-
-        response.EnsureSuccessStatusCode();
+        await ThrowIfNotSuccessAsync(response);
         
         if (response.Content.Headers.ContentLength == 0)
             return default;
@@ -104,14 +122,7 @@ public class ApiService : IApiService
     {
         var request = await CreateRequestAsync(HttpMethod.Delete, endpoint);
         var response = await _httpClient.SendAsync(request);
-        
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            await _authService.LogoutAsync();
-            throw new UnauthorizedAccessException("Sesión expirada");
-        }
-
-        response.EnsureSuccessStatusCode();
+        await ThrowIfNotSuccessAsync(response);
         
         if (response.StatusCode == System.Net.HttpStatusCode.NoContent || 
             response.Content.Headers.ContentLength == 0)
@@ -125,14 +136,7 @@ public class ApiService : IApiService
     {
         var request = await CreateRequestAsync(HttpMethod.Patch, endpoint, data);
         var response = await _httpClient.SendAsync(request);
-        
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            await _authService.LogoutAsync();
-            throw new UnauthorizedAccessException("Sesión expirada");
-        }
-
-        response.EnsureSuccessStatusCode();
+        await ThrowIfNotSuccessAsync(response);
         
         if (response.Content.Headers.ContentLength == 0)
             return default;

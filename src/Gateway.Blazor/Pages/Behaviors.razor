@@ -1,0 +1,165 @@
+@page "/behaviors"
+@using System.Linq
+@inject IBehaviorApiService BehaviorApi
+@inject IAuthService AuthService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Configuración de Agentes</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudStack Spacing="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.h4">Comportamientos de Agentes</MudText>
+            <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Fuente: tabla Behavior</MudText>
+        </MudStack>
+
+        @if (!_isAuthorized)
+        {
+            <MudAlert Severity="Severity.Warning">
+                Debes ser Administrador o SuperUsuario para gestionar los comportamientos.
+            </MudAlert>
+        }
+        else if (_isLoading)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (_behaviors.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info">No hay configuraciones guardadas. Usa “Editar” para crear la primera.</MudAlert>
+            @foreach (var role in _allRoles)
+            {
+                <MudPaper Class="p-3 mt-2" Elevation="1">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.h6">@GetRoleLabel(role)</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@role.ToString()</MudText>
+                        </MudStack>
+                        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="@(() => NavigateToEdit(role))">
+                            Editar
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+        }
+        else
+        {
+            <MudTable Items="_allRoles" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Agente</MudTh>
+                    <MudTh>Alias</MudTh>
+                    <MudTh>Prompt</MudTh>
+                    <MudTh>Fuente</MudTh>
+                    <MudTh>Acciones</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    @{
+                        var behavior = _behaviors.FirstOrDefault(b => b.AgentRole == context);
+                        var alias = behavior?.Alias ?? "No configurado";
+                        var promptPreview = behavior?.Prompt ?? string.Empty;
+                        var fromFallback = behavior?.FromFallback ?? true;
+                    }
+                    <MudTd DataLabel="Agente">
+                        <MudText Typo="Typo.body1">@GetRoleLabel(context)</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@context.ToString()</MudText>
+                    </MudTd>
+                    <MudTd DataLabel="Alias">@alias</MudTd>
+                    <MudTd DataLabel="Prompt">
+                        <MudTooltip Text="@promptPreview">
+                            <MudText Typo="Typo.caption">
+                                @(string.IsNullOrWhiteSpace(promptPreview) ? "Vacío" : Truncate(promptPreview, 80))
+                            </MudText>
+                        </MudTooltip>
+                    </MudTd>
+                    <MudTd DataLabel="Fuente">
+                        @if (fromFallback)
+                        {
+                            <MudChip T="string" Color="Color.Warning" Variant="Variant.Outlined" Size="Size.Small">Fallback</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small">BD</MudChip>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Acciones">
+                        <MudButton Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => NavigateToEdit(context))">
+                            Editar
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private List<Behavior> _behaviors = new();
+    private bool _isLoading = true;
+    private bool _isAuthorized = false;
+    private readonly AgentRole[] _allRoles = new[] { AgentRole.Dev, AgentRole.PM, AgentRole.PO, AgentRole.UX, AgentRole.UR };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthorized = await IsAdminOrSuperAsync();
+        if (!_isAuthorized)
+        {
+            _isLoading = false;
+            return;
+        }
+        await LoadData();
+    }
+
+    private async Task<bool> IsAdminOrSuperAsync()
+    {
+        try
+        {
+            var isAuth = await AuthService.IsAuthenticatedAsync();
+            if (!isAuth) return false;
+            var role = AuthService.GetUserRole();
+            return role == "Admin" || role == "SuperUsuario";
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            _behaviors = await BehaviorApi.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al cargar comportamientos: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void NavigateToEdit(AgentRole role)
+    {
+        Navigation.NavigateTo($"/configureagent/{role}");
+    }
+
+    private static string GetRoleLabel(AgentRole role) => role switch
+    {
+        AgentRole.Dev => "Desarrollador",
+        AgentRole.PM => "Project Manager",
+        AgentRole.PO => "Product Owner",
+        AgentRole.UX => "UX/UI",
+        AgentRole.UR => "Usuario Representante",
+        _ => role.ToString()
+    };
+
+    private static string Truncate(string text, int length)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        return text.Length <= length ? text : $"{text.Substring(0, length)}...";
+    }
+}
+

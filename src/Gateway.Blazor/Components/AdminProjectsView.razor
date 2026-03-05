@@ -13,16 +13,16 @@ else if (_allProjects != null && _allProjects.Any())
         <HeaderContent>
             <MudTh>Nombre</MudTh>
             <MudTh>Estado</MudTh>
-            <MudTh>Fecha de Creación</MudTh>
-            <MudTh>Usuario</MudTh>
+            <MudTh>Propietario</MudTh>
+            <MudTh>Inicio</MudTh>
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="Nombre">@(context?.Name ?? "Sin nombre")</MudTd>
             <MudTd DataLabel="Estado">
                 <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context?.Status ?? string.Empty)" Variant="Variant.Filled">@(context?.Status ?? string.Empty)</MudChip>
             </MudTd>
-            <MudTd DataLabel="Fecha">@(context?.CreatedAt.ToString("dd/MM/yyyy HH:mm") ?? string.Empty)</MudTd>
-            <MudTd DataLabel="Usuario">@(context?.UserId ?? 0)</MudTd>
+            <MudTd DataLabel="Propietario">@(context?.UserName ?? "N/D")</MudTd>
+            <MudTd DataLabel="Inicio">@(context?.CreatedAt.ToString("dd/MM/yyyy HH:mm") ?? string.Empty)</MudTd>
         </RowTemplate>
     </MudTable>
 }

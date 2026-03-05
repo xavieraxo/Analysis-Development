@@ -6,7 +6,8 @@
         <MudStack Spacing="3">
             <MudTextField @bind-Value="_name" Label="Nombre *" Variant="Variant.Outlined" Required="true" />
             <MudTextField @bind-Value="_email" Label="Email *" Variant="Variant.Outlined" Required="true" />
-            <MudTextField @bind-Value="_password" Label="Contraseña *" Variant="Variant.Outlined" InputType="InputType.Password" Required="true" />
+            <MudTextField @bind-Value="_password" Label="Contraseña *" Variant="Variant.Outlined" InputType="InputType.Password" Required="true"
+                          HelperText="Mín. 8 caracteres, 1 mayúscula, 1 número, 3 caracteres únicos" />
             <MudSelect @bind-Value="_role" Label="Rol *" Variant="Variant.Outlined" Required="true">
                 <MudSelectItem Value="@("Final")">Usuario Final</MudSelectItem>
                 <MudSelectItem Value="@("Empresa")">Empresa</MudSelectItem>

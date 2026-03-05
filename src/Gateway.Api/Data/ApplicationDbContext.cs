@@ -30,6 +30,8 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<Project> Projects { get; set; }
     public DbSet<ProjectLog> ProjectLogs { get; set; }
     public DbSet<SystemConfiguration> SystemConfigurations { get; set; }
+    public DbSet<Behavior> Behaviors { get; set; }
+    public DbSet<PasswordRecoveryToken> PasswordRecoveryTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -94,6 +96,25 @@ public class ApplicationDbContext : IdentityDbContext<
             entity.Property(e => e.Value).IsRequired();
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.MatchPattern).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<Behavior>(entity =>
+        {
+            entity.HasKey(e => e.AgentRole);
+            entity.Property(e => e.AgentRole).IsRequired();
+            entity.Property(e => e.Alias).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Prompt).IsRequired();
+            entity.Property(e => e.InstructionsJson).IsRequired();
+        });
+
+        modelBuilder.Entity<PasswordRecoveryToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Code).IsRequired().HasMaxLength(6);
+            entity.Property(e => e.Expiration).IsRequired();
+            entity.Property(e => e.Used).IsRequired();
+            entity.HasIndex(e => new { e.Email, e.Code });
         });
     }
 }
