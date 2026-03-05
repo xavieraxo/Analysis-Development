@@ -816,6 +816,28 @@ app.MapPost("/api/devflow/runs/{id}/approve", [Authorize(Policy = AuthorizationR
 .Produces(StatusCodes.Status403Forbidden)
 .Produces(StatusCodes.Status404NotFound);
 
+app.MapGet("/api/devflow/runs/{id}/branch-plan", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (int id, IDevFlowService devFlowService, string? format) =>
+{
+    var plan = await devFlowService.GetBranchPlanExportAsync(id);
+
+    if (plan == null)
+        return Results.NotFound(new { message = "Run no existe o no tiene Branch Plan asociado." });
+
+    var fmt = (format ?? "json").Trim().ToLowerInvariant();
+    if (fmt == "md" || fmt == "markdown")
+    {
+        var markdown = BranchPlanMarkdownFormatter.ToMarkdown(plan, id);
+        return Results.Text(markdown, "text/markdown");
+    }
+
+    return Results.Json(plan);
+})
+.WithName("GetBranchPlanExport")
+.Produces<BranchPlanExportDto>(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status401Unauthorized)
+.Produces(StatusCodes.Status403Forbidden)
+.Produces(StatusCodes.Status404NotFound);
+
 // ========== ENDPOINTS ADMIN INTERNO ==========
 // Solo SuperUsuario puede acceder a administración interna
 

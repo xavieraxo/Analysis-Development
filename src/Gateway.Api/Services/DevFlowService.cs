@@ -268,6 +268,36 @@ public class DevFlowService : IDevFlowService
         });
     }
 
+    public async Task<BranchPlanExportDto?> GetBranchPlanExportAsync(int runId, CancellationToken cancellationToken = default)
+    {
+        var plan = await _context.BranchPlans
+            .AsNoTracking()
+            .Include(b => b.Items)
+            .FirstOrDefaultAsync(b => b.DevFlowRunId == runId, cancellationToken);
+
+        if (plan == null)
+            return null;
+
+        return new BranchPlanExportDto
+        {
+            RunId = plan.DevFlowRunId,
+            BranchPlanId = plan.Id,
+            Items = plan.Items
+                .OrderBy(i => i.Order)
+                .Select(i => new BranchPlanItemExportDto
+                {
+                    Order = i.Order,
+                    StoryId = i.StoryId,
+                    TaskId = i.TaskId,
+                    Area = i.Area,
+                    BranchName = i.BranchName,
+                    Title = i.Title,
+                    Description = i.Description
+                })
+                .ToList()
+        };
+    }
+
     private static DevFlowRunResponse MapToResponse(DevFlowRun run) => new()
     {
         Id = run.Id,
