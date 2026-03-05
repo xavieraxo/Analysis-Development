@@ -33,6 +33,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<Behavior> Behaviors { get; set; }
     public DbSet<PasswordRecoveryToken> PasswordRecoveryTokens { get; set; }
     public DbSet<DevFlowRun> DevFlowRuns { get; set; }
+    public DbSet<DevFlowArtifact> DevFlowArtifacts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -136,6 +137,21 @@ public class ApplicationDbContext : IdentityDbContext<
                   .OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => e.CreatedByUserId);
             entity.HasIndex(e => e.ProjectId);
+        });
+
+        modelBuilder.Entity<DevFlowArtifact>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PayloadJson).IsRequired();
+            entity.Property(e => e.Stage).IsRequired();
+            entity.Property(e => e.AgentRole).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.HasOne(e => e.DevFlowRun)
+                  .WithMany(r => r.Artifacts)
+                  .HasForeignKey(e => e.DevFlowRunId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.DevFlowRunId);
+            entity.HasIndex(e => new { e.DevFlowRunId, e.Stage });
         });
     }
 }
