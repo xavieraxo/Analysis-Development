@@ -32,4 +32,9 @@ public interface IDevFlowPipeline
     /// Obtiene el AgentRole correspondiente a una etapa del pipeline.
     /// </summary>
     AgentRole GetAgentRoleForStage(DevFlowStage stage);
+
+    /// <summary>
+    /// Obtiene la etapa anterior. Devuelve null para UR (primera etapa).
+    /// </summary>
+    DevFlowStage? GetPreviousStage(DevFlowStage current);
 }

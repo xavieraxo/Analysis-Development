@@ -51,4 +51,15 @@ public sealed class DevFlowPipeline : IDevFlowPipeline
             throw new ArgumentOutOfRangeException(nameof(stage), stage, "Stage no mapeado a AgentRole.");
         return role;
     }
+
+    /// <inheritdoc />
+    public DevFlowStage? GetPreviousStage(DevFlowStage current)
+    {
+        if (current == DevFlowStage.UR)
+            return null;
+        var idx = Array.IndexOf(OrderedStages, current);
+        if (idx <= 0 || idx >= OrderedStages.Length)
+            return null;
+        return OrderedStages[idx - 1];
+    }
 }

@@ -775,6 +775,24 @@ app.MapGet("/api/devflow/runs/{id}", [Authorize(Policy = AuthorizationRoles.Supe
 .Produces(StatusCodes.Status401Unauthorized)
 .Produces(StatusCodes.Status403Forbidden);
 
+app.MapPost("/api/devflow/runs/{id}/execute-stage", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (int id, IDevFlowService devFlowService, ExecuteStageRequest? request) =>
+{
+    var req = request ?? new ExecuteStageRequest();
+    var result = await devFlowService.ExecuteStageAsync(id, req);
+
+    if (result.IsSuccess)
+        return Results.Ok(result.Response);
+
+    return Results.Json(new { message = result.ErrorMessage }, statusCode: result.HttpStatusCode);
+})
+.WithName("ExecuteDevFlowStage")
+.Produces<ExecuteStageResponse>(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status400BadRequest)
+.Produces(StatusCodes.Status401Unauthorized)
+.Produces(StatusCodes.Status403Forbidden)
+.Produces(StatusCodes.Status404NotFound)
+.Produces(StatusCodes.Status409Conflict);
+
 // ========== ENDPOINTS ADMIN INTERNO ==========
 // Solo SuperUsuario puede acceder a administración interna
 
