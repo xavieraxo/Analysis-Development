@@ -21,4 +21,11 @@ public interface IDevFlowService
     /// <param name="id">Id del run.</param>
     /// <returns>El run detallado o null si no existe.</returns>
     Task<DevFlowRunDetailResponse?> GetRunByIdAsync(int id);
+
+    /// <summary>
+    /// Lista DevFlow Runs con filtros y paginación.
+    /// </summary>
+    /// <param name="query">Parámetros de filtro y paginación.</param>
+    /// <returns>Respuesta paginada. Null si pageSize fuera de rango.</returns>
+    Task<PagedResponse<DevFlowRunListItem>?> GetRunsAsync(DevFlowRunsQueryParams query);
 }

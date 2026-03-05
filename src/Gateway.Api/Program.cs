@@ -720,6 +720,48 @@ app.MapPost("/api/devflow/runs", [Authorize(Policy = AuthorizationRoles.SuperUse
 .Produces(StatusCodes.Status401Unauthorized)
 .Produces(StatusCodes.Status403Forbidden);
 
+app.MapGet("/api/devflow/runs", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (
+    IDevFlowService devFlowService,
+    int? projectId,
+    int? status,
+    int? stage,
+    int? createdByUserId,
+    DateTime? fromDate,
+    DateTime? toDate,
+    int? page,
+    int? pageSize) =>
+{
+    if (status.HasValue && !Enum.IsDefined(typeof(DevFlowRunStatus), status.Value))
+        return Results.BadRequest(new { message = "status inválido" });
+    if (stage.HasValue && !Enum.IsDefined(typeof(DevFlowStage), stage.Value))
+        return Results.BadRequest(new { message = "stage inválido" });
+
+    var query = new DevFlowRunsQueryParams
+    {
+        ProjectId = projectId,
+        Status = status.HasValue ? (DevFlowRunStatus)status.Value : null,
+        Stage = stage.HasValue ? (DevFlowStage)stage.Value : null,
+        CreatedByUserId = createdByUserId,
+        FromDate = fromDate,
+        ToDate = toDate,
+        Page = page ?? 1,
+        PageSize = pageSize ?? 20
+    };
+
+    if (query.PageSize < 1 || query.PageSize > 100)
+        return Results.BadRequest(new { message = "pageSize debe estar entre 1 y 100" });
+    if (query.Page < 1)
+        return Results.BadRequest(new { message = "page debe ser mayor a 0" });
+
+    var result = await devFlowService.GetRunsAsync(query);
+    return Results.Ok(result);
+})
+.WithName("ListDevFlowRuns")
+.Produces<PagedResponse<DevFlowRunListItem>>(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status400BadRequest)
+.Produces(StatusCodes.Status401Unauthorized)
+.Produces(StatusCodes.Status403Forbidden);
+
 app.MapGet("/api/devflow/runs/{id}", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (int id, IDevFlowService devFlowService) =>
 {
     var run = await devFlowService.GetRunByIdAsync(id);
