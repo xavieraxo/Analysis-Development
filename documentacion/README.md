@@ -6,6 +6,7 @@
 
 | Documento | Descripción |
 |-----------|-------------|
+| [PLAN_PROXIMOS_HITOS.md](PLAN_PROXIMOS_HITOS.md) | Plan de hitos, historias de usuario y tareas técnicas (RAG, Observabilidad, Guardrails, Arquitectura distribuida) |
 | [ESTADO_PROYECTO.md](ESTADO_PROYECTO.md) | Análisis del estado del proyecto y verificación de funcionamiento |
 | [QUICK_START.md](QUICK_START.md) | Guía rápida de inicio |
 | [CONFIGURAR_VISUAL_STUDIO.md](CONFIGURAR_VISUAL_STUDIO.md) | Configuración del proyecto en Visual Studio |
@@ -13,6 +14,12 @@
 | [GUIA_COMPLETA_DEBUGGING.md](GUIA_COMPLETA_DEBUGGING.md) | Guía completa de debugging |
 | [POSIBLES_CAUSAS_LENTITUD.md](POSIBLES_CAUSAS_LENTITUD.md) | Posibles causas de lentitud del sistema |
 | [QUE_RECIBE_EL_USUARIO.md](QUE_RECIBE_EL_USUARIO.md) | Qué recibe el usuario al interactuar con el sistema |
+
+## AutoDev MVP
+
+| Documento | Descripción |
+|-----------|-------------|
+| [autodev/ROADMAP_AUTODEV_MVP.md](autodev/ROADMAP_AUTODEV_MVP.md) | Roadmap de la etapa AutoDev MVP: DevFlow, gates, Branch Plan, UI |
 
 ## Por proyecto
 
