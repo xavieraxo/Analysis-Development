@@ -17,7 +17,7 @@
         @if (!_isAuthorized)
         {
             <MudAlert Severity="Severity.Warning">
-                Debes ser Administrador o SuperUsuario para editar comportamientos.
+                No autorizado. Solo SuperUsuario puede editar comportamientos.
             </MudAlert>
         }
         else if (_isLoading)
@@ -82,7 +82,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _isAuthorized = await IsAdminOrSuperAsync();
+        _isAuthorized = await IsSuperUsuarioAsync();
         if (!_isAuthorized)
         {
             _isLoading = false;
@@ -100,19 +100,14 @@
         await LoadBehavior();
     }
 
-    private async Task<bool> IsAdminOrSuperAsync()
+    private async Task<bool> IsSuperUsuarioAsync()
     {
         try
         {
             var isAuth = await AuthService.IsAuthenticatedAsync();
-            if (!isAuth) return false;
-            var userRole = AuthService.GetUserRole();
-            return userRole == "Admin" || userRole == "SuperUsuario";
+            return isAuth && AuthService.GetUserRole() == global::Shared.Abstractions.AuthorizationRoles.SuperUsuario;
         }
-        catch
-        {
-            return false;
-        }
+        catch { return false; }
     }
 
     private async Task LoadBehavior()

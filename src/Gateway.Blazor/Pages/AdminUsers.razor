@@ -14,9 +14,9 @@
             Ir al Login
         </MudButton>
     }
-    else if (!_isAdminOrSuperUser)
+    else if (!_isSuperUsuario)
     {
-        <MudAlert Severity="Severity.Error">No tienes permisos para acceder a esta página.</MudAlert>
+        <MudAlert Severity="Severity.Error">No autorizado. Solo SuperUsuario puede acceder.</MudAlert>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="NavigateToHome">
             Ir al Home
         </MudButton>
@@ -30,31 +30,20 @@
 
 @code {
     private bool _isAuthenticated = false;
-    private bool _isAdminOrSuperUser = false;
+    private bool _isSuperUsuario = false;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            // Verificar autenticación y permisos
             _isAuthenticated = await AuthService.IsAuthenticatedAsync();
-            
             if (_isAuthenticated)
-            {
-                var role = AuthService.GetUserRole();
-                _isAdminOrSuperUser = role == "Admin" || role == "SuperUsuario";
-            }
-            
-            // Si no está autenticado, redirigir al login
+                _isSuperUsuario = AuthService.GetUserRole() == global::Shared.Abstractions.AuthorizationRoles.SuperUsuario;
+
             if (!_isAuthenticated)
-            {
                 Navigation.NavigateTo("/login");
-            }
-            // Si está autenticado pero no tiene permisos, redirigir al home
-            else if (!_isAdminOrSuperUser)
-            {
+            else if (!_isSuperUsuario)
                 Navigation.NavigateTo("/Home");
-            }
         }
         catch (Exception ex)
         {

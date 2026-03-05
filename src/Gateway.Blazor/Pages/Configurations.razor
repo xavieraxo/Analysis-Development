@@ -3,12 +3,20 @@
 @inject IAuthService AuthService
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject NavigationManager Navigation
 
 <PageTitle>Configuración del Sistema - Multi-Agent System</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <MudText Typo="Typo.h4" GutterBottom="true">Configuración del Sistema</MudText>
 
+    @if (!_isSuperUsuario)
+    {
+        <MudAlert Severity="Severity.Error">No autorizado. Solo SuperUsuario puede acceder.</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@(() => Navigation.NavigateTo("/Home"))">Ir al Home</MudButton>
+    }
+    else
+    {
     <MudStack Spacing="3" Class="mt-4">
         <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
             <MudSelect @bind-Value="_selectedType" Label="Filtrar por tipo" Variant="Variant.Outlined" Style="max-width: 300px;">
@@ -75,6 +83,7 @@
             <MudAlert Severity="Severity.Info">No hay configuraciones. Crea una nueva para comenzar.</MudAlert>
         }
     </MudStack>
+    }
 </MudContainer>
 
 
@@ -82,10 +91,14 @@
     private List<SystemConfiguration>? _configurations;
     private bool _isLoading = true;
     private string? _selectedType;
-    private bool CanDelete => AuthService.GetUserRole() == "Admin" || AuthService.GetUserRole() == "SuperUsuario";
+    private bool _isSuperUsuario;
+    private bool CanDelete => _isSuperUsuario;
 
     protected override async Task OnInitializedAsync()
     {
+        _isSuperUsuario = await AuthService.IsAuthenticatedAsync() && AuthService.GetUserRole() == global::Shared.Abstractions.AuthorizationRoles.SuperUsuario;
+        if (!_isSuperUsuario)
+            return;
         await LoadConfigurations();
     }
 
