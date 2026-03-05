@@ -21,6 +21,11 @@ public class DevFlowApiService : IDevFlowApiService
         return await _api.GetAsync<PagedResponse<DevFlowRunListItem>>(endpoint);
     }
 
+    public async Task<DevFlowRunResponse?> CreateRunAsync(CreateDevFlowRunRequest request, CancellationToken ct = default)
+    {
+        return await _api.PostAsync<DevFlowRunResponse>("/api/devflow/runs", request);
+    }
+
     private static string BuildQueryString(DevFlowRunsQuery query)
     {
         var parameters = new List<string>

@@ -3,6 +3,7 @@
 @inject IDevFlowApiService DevFlowApi
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>DevFlow Runs - Multi-Agent System</PageTitle>
 
@@ -58,10 +59,16 @@
         <MudStack Spacing="3">
             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                 <MudText Typo="Typo.h6">Listado</MudText>
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
-                           OnClick="LoadRuns" Disabled="_isLoading">
-                    Actualizar
-                </MudButton>
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="ShowCreateDialog" Disabled="_isLoading">
+                        New Run
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
+                               OnClick="LoadRuns" Disabled="_isLoading">
+                        Actualizar
+                    </MudButton>
+                </MudStack>
             </MudStack>
 
             @if (_unauthorized)
@@ -193,6 +200,43 @@
         DevFlowRunStatus.Cancelled => Color.Error,
         _ => Color.Default
     };
+
+    private async Task ShowCreateDialog()
+    {
+        if (!_isSuperUsuario) return;
+        var options = new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<CreateDevFlowRunDialog>("Nuevo DevFlow Run", options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: CreateDevFlowRunRequest request })
+        {
+            try
+            {
+                var created = await DevFlowApi.CreateRunAsync(request);
+                if (created != null)
+                {
+                    Snackbar.Add($"Run creado: {created.Title} (Id: {created.Id})", Severity.Success);
+                    await LoadRuns();
+                }
+                else
+                {
+                    Snackbar.Add("No se pudo crear el run", Severity.Error);
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                _unauthorized = true;
+                Snackbar.Add("Sesión expirada", Severity.Warning);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("403") || ex.Message.Contains("autorizado") || ex.Message.Contains("Forbidden", StringComparison.OrdinalIgnoreCase))
+            {
+                Snackbar.Add("No autorizado para crear DevFlow Runs", Severity.Error);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+            }
+        }
+    }
 
     private void NavigateToLogin() => Navigation.NavigateTo("/login");
     private void NavigateToHome() => Navigation.NavigateTo("/Home");
