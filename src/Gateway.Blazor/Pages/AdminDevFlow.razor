@@ -89,6 +89,7 @@
                         <MudTh>Estado</MudTh>
                         <MudTh>Etapa</MudTh>
                         <MudTh>ProjectId</MudTh>
+                        <MudTh></MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Id">@context.Id</MudTd>
@@ -100,6 +101,11 @@
                         </MudTd>
                         <MudTd DataLabel="Etapa">@(context.CurrentStage.HasValue ? GetStageLabel(context.CurrentStage.Value) : "-")</MudTd>
                         <MudTd DataLabel="ProjectId">@(context.ProjectId?.ToString() ?? "-")</MudTd>
+                        <MudTd DataLabel="">
+                            <MudButton Href="@($"/admin/devflow/{context.Id}")" Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.OpenInNew">
+                                Open
+                            </MudButton>
+                        </MudTd>
                     </RowTemplate>
                 </MudTable>
                 <MudText Typo="Typo.caption">Total: @_response.Total (página @_response.Page)</MudText>
@@ -214,8 +220,8 @@
                 var created = await DevFlowApi.CreateRunAsync(request);
                 if (created != null)
                 {
-                    Snackbar.Add($"Run creado: {created.Title} (Id: {created.Id})", Severity.Success);
-                    await LoadRuns();
+                    Snackbar.Add($"Run creado: {created.Title}", Severity.Success);
+                    Navigation.NavigateTo($"/admin/devflow/{created.Id}");
                 }
                 else
                 {
