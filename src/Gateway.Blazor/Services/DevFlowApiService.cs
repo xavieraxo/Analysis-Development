@@ -26,6 +26,21 @@ public class DevFlowApiService : IDevFlowApiService
         return await _api.PostAsync<DevFlowRunResponse>("/api/devflow/runs", request);
     }
 
+    public async Task<DevFlowRunDetailResponse?> GetRunAsync(int id, CancellationToken ct = default)
+    {
+        return await _api.GetAsync<DevFlowRunDetailResponse>($"/api/devflow/runs/{id}");
+    }
+
+    public async Task<ExecuteStageResponse?> ExecuteStageAsync(int id, ExecuteStageRequest request, CancellationToken ct = default)
+    {
+        return await _api.PostAsync<ExecuteStageResponse>($"/api/devflow/runs/{id}/execute-stage", request);
+    }
+
+    public async Task<ApproveGateResponse?> ApproveGateAsync(int id, ApproveGateRequest request, CancellationToken ct = default)
+    {
+        return await _api.PostAsync<ApproveGateResponse>($"/api/devflow/runs/{id}/approve", request);
+    }
+
     private static string BuildQueryString(DevFlowRunsQuery query)
     {
         var parameters = new List<string>

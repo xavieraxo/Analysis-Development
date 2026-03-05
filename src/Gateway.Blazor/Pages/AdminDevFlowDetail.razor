@@ -1,0 +1,355 @@
+@page "/admin/devflow/{Id:int}"
+@inject IAuthService AuthService
+@inject IDevFlowApiService DevFlowApi
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>DevFlow Run @Id - Multi-Agent System</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    @if (!_isAuthenticated)
+    {
+        <MudAlert Severity="Severity.Warning">Debes iniciar sesión.</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo("/login"))">Ir al Login</MudButton>
+    }
+    else if (!_isSuperUsuario)
+    {
+        <MudAlert Severity="Severity.Error">No autorizado. Solo SuperUsuario puede acceder.</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => Navigation.NavigateTo("/Home"))">Ir al Home</MudButton>
+    }
+    else if (_notFound)
+    {
+        <MudAlert Severity="Severity.Error">Run no encontrado.</MudAlert>
+        <MudButton Variant="Variant.Outlined" OnClick="@(() => Navigation.NavigateTo("/admin/devflow"))">Volver al listado</MudButton>
+    }
+    else if (_unauthorized)
+    {
+        <MudAlert Severity="Severity.Error">No autorizado para ver este run.</MudAlert>
+        <MudButton Variant="Variant.Outlined" OnClick="@(() => Navigation.NavigateTo("/admin/devflow"))">Volver al listado</MudButton>
+    }
+    else if (_run != null)
+    {
+        <MudStack Spacing="4">
+            <!-- Header y volver -->
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => Navigation.NavigateTo("/admin/devflow"))" />
+                    <MudText Typo="Typo.h4">@_run.Title</MudText>
+                </MudStack>
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadRun" Disabled="_isLoading">
+                    Actualizar
+                </MudButton>
+            </MudStack>
+
+            @if (!string.IsNullOrEmpty(_executeError))
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true">@_executeError</MudAlert>
+            }
+
+            <!-- Run info -->
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudStack Spacing="2">
+                    <MudText Typo="Typo.h6">Información del Run</MudText>
+                    <MudSimpleTable Dense="true">
+                        <tbody>
+                            <tr><td><strong>Estado</strong></td><td><MudChip T="string" Size="Size.Small" Color="@GetStatusColor(_run.Status)" Variant="Variant.Filled">@GetStatusLabel(_run.Status)</MudChip></td></tr>
+                            <tr><td><strong>Etapa actual</strong></td><td>@(_run.CurrentStage.HasValue ? GetStageLabel(_run.CurrentStage.Value) : "-")</td></tr>
+                            <tr><td><strong>Creado</strong></td><td>@_run.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td></tr>
+                            @if (!string.IsNullOrEmpty(_run.Description))
+                            {
+                                <tr><td><strong>Descripción</strong></td><td>@_run.Description</td></tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudStack>
+            </MudPaper>
+
+            <!-- Pipeline visual -->
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" GutterBottom="true">Pipeline</MudText>
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                    @foreach (var stage in AllStages)
+                    {
+                        var (completed, isCurrent) = GetStageState(stage);
+                        <MudChip T="string" Color="@(completed ? Color.Success : isCurrent ? Color.Primary : Color.Default)"
+                                 Variant="@(isCurrent ? Variant.Filled : Variant.Outlined)"
+                                 Size="Size.Medium">@GetStageLabel(stage) @(completed ? "✓" : isCurrent ? "●" : "")</MudChip>
+                        @if (stage != DevFlowStage.DEV)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
+                        }
+                    }
+                </MudStack>
+            </MudPaper>
+
+            <!-- Acciones: Execute stage -->
+            @if (_run.Status != DevFlowRunStatus.Completed && _run.Status != DevFlowRunStatus.Cancelled && _run.CurrentStage.HasValue)
+            {
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Ejecutar etapa actual (@GetStageLabel(_run.CurrentStage.Value))</MudText>
+                    <MudStack Spacing="2">
+                        <MudTextField @bind-Value="_executeInputText" Label="Input (opcional; si vacío usa Title+Description)" Variant="Variant.Outlined" Lines="3" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PlayArrow"
+                                   OnClick="ExecuteCurrentStage" Disabled="_isLoading || _actionInProgress">
+                            Ejecutar etapa actual
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            <!-- Gates por etapa -->
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" GutterBottom="true">Gates</MudText>
+                @foreach (var stage in AllStages)
+                {
+                    var gate = _run.Gates.FirstOrDefault(g => g.Stage == stage);
+                    var canApproveReject = gate == null || gate.Status == DevFlowGateStatus.Pending;
+                    <MudDivider Class="my-2" />
+                    <MudStack Spacing="2" Class="my-2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
+                            <MudText><strong>@GetStageLabel(stage)</strong> – @(gate != null ? GetGateStatusLabel(gate.Status) : "Sin gate")</MudText>
+                            @if (canApproveReject && _run.Status != DevFlowRunStatus.Completed && _run.Status != DevFlowRunStatus.Cancelled)
+                            {
+                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                    <MudTextField @bind-Value="@_gateComments[stage]" Label="Comentario" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 200px;" />
+                                    <MudButton Size="Size.Small" Color="Color.Success" StartIcon="@Icons.Material.Filled.Check" OnClick="@(() => ApproveGate(stage, true))" Disabled="_actionInProgress">Aprobar</MudButton>
+                                    <MudButton Size="Size.Small" Color="Color.Error" StartIcon="@Icons.Material.Filled.Close" OnClick="@(() => ApproveGate(stage, false))" Disabled="_actionInProgress">Rechazar</MudButton>
+                                </MudStack>
+                            }
+                            else if (gate != null && !string.IsNullOrEmpty(gate.DecisionComment))
+                            {
+                                <MudText Typo="Typo.caption">@gate.DecisionComment</MudText>
+                            }
+                        </MudStack>
+                    </MudStack>
+                }
+            </MudPaper>
+
+            <!-- Artifacts por etapa -->
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" GutterBottom="true">Artifacts</MudText>
+                @if (_run.Artifacts.Any())
+                {
+                    <MudTable Items="@_run.Artifacts.OrderBy(a => a.Stage).ThenBy(a => a.CreatedAt)" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Etapa</MudTh>
+                            <MudTh>Agente</MudTh>
+                            <MudTh>Versión</MudTh>
+                            <MudTh>Creado</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Etapa">@GetStageLabel(context.Stage)</MudTd>
+                            <MudTd DataLabel="Agente">@context.AgentRole</MudTd>
+                            <MudTd DataLabel="Versión">@context.Version</MudTd>
+                            <MudTd DataLabel="Creado">@context.CreatedAt.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2">Sin artifacts todavía.</MudText>
+                }
+            </MudPaper>
+        </MudStack>
+    }
+    else if (_isLoading)
+    {
+        <MudProgressCircular Indeterminate="true" Class="mt-4" />
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _isAuthenticated;
+    private bool _isSuperUsuario;
+    private bool _isLoading = true;
+    private bool _actionInProgress;
+    private bool _notFound;
+    private bool _unauthorized;
+    private string _executeError = string.Empty;
+    private DevFlowRunDetailResponse? _run;
+    private string _executeInputText = string.Empty;
+    private Dictionary<DevFlowStage, string> _gateComments = new();
+
+    private static readonly DevFlowStage[] AllStages = { DevFlowStage.UR, DevFlowStage.PM, DevFlowStage.PO, DevFlowStage.DEV };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (_isAuthenticated)
+            _isSuperUsuario = AuthService.GetUserRole() == global::Shared.Abstractions.AuthorizationRoles.SuperUsuario;
+
+        if (!_isAuthenticated)
+            Navigation.NavigateTo("/login");
+        else if (!_isSuperUsuario)
+            Navigation.NavigateTo("/Home");
+        else
+            await LoadRun();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_isSuperUsuario && Id > 0 && _run?.Id != Id)
+            await LoadRun();
+    }
+
+    private async Task LoadRun()
+    {
+        if (!_isSuperUsuario) return;
+        _isLoading = true;
+        _notFound = false;
+        _unauthorized = false;
+        _executeError = string.Empty;
+        try
+        {
+            _run = await DevFlowApi.GetRunAsync(Id);
+            if (_run != null)
+            {
+                _executeInputText = string.IsNullOrWhiteSpace(_run.Description) ? _run.Title : $"{_run.Title}\n\n{_run.Description}";
+                foreach (var s in AllStages)
+                    _gateComments.TryAdd(s, string.Empty);
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _unauthorized = true;
+            Snackbar.Add("Sesión expirada", Severity.Warning);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("403") || ex.Message.Contains("autorizado") || ex.Message.Contains("Forbidden", StringComparison.OrdinalIgnoreCase))
+        {
+            _unauthorized = true;
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("404"))
+        {
+            _notFound = true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ExecuteCurrentStage()
+    {
+        if (_run == null || !_run.CurrentStage.HasValue || _actionInProgress) return;
+        _actionInProgress = true;
+        _executeError = string.Empty;
+        try
+        {
+            var input = string.IsNullOrWhiteSpace(_executeInputText) ? $"{_run.Title}\n{_run.Description}" : _executeInputText.Trim();
+            var result = await DevFlowApi.ExecuteStageAsync(Id, new ExecuteStageRequest { InputText = input });
+            if (result != null)
+            {
+                _run = result.Run;
+                Snackbar.Add($"Etapa ejecutada. Artifact creado: v{result.Artifact.Version}", Severity.Success);
+            }
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("409") || ex.Message.Contains("gate") || ex.Message.Contains("pending", StringComparison.OrdinalIgnoreCase))
+        {
+            _executeError = ex.Message;
+            Snackbar.Add("Debes aprobar el gate pendiente antes de ejecutar la siguiente etapa.", Severity.Warning);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _unauthorized = true;
+            Snackbar.Add("Sesión expirada", Severity.Warning);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("403"))
+        {
+            Snackbar.Add("No autorizado", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            _executeError = ex.Message;
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _actionInProgress = false;
+        }
+    }
+
+    private async Task ApproveGate(DevFlowStage stage, bool approved)
+    {
+        if (_run == null || _actionInProgress) return;
+        _actionInProgress = true;
+        try
+        {
+            var comment = _gateComments.GetValueOrDefault(stage);
+            var result = await DevFlowApi.ApproveGateAsync(Id, new ApproveGateRequest { Stage = stage, Approved = approved, Comment = comment });
+            if (result != null)
+            {
+                _run = await DevFlowApi.GetRunAsync(Id);
+                Snackbar.Add(approved ? "Gate aprobado" : "Gate rechazado", Severity.Success);
+                _gateComments[stage] = string.Empty;
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _unauthorized = true;
+            Snackbar.Add("Sesión expirada", Severity.Warning);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("403"))
+        {
+            Snackbar.Add("No autorizado", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _actionInProgress = false;
+        }
+    }
+
+    private (bool completed, bool isCurrent) GetStageState(DevFlowStage stage)
+    {
+        if (_run == null) return (false, false);
+        var hasArtifact = _run.Artifacts.Any(a => a.Stage == stage);
+        var isCurrent = _run.CurrentStage == stage;
+        return (hasArtifact, isCurrent);
+    }
+
+    private static string GetStatusLabel(DevFlowRunStatus s) => s switch
+    {
+        DevFlowRunStatus.Created => "Creado",
+        DevFlowRunStatus.InProgress => "En progreso",
+        DevFlowRunStatus.Paused => "Pausado",
+        DevFlowRunStatus.Completed => "Completado",
+        DevFlowRunStatus.Cancelled => "Cancelado",
+        _ => s.ToString()
+    };
+
+    private static string GetStageLabel(DevFlowStage s) => s switch
+    {
+        DevFlowStage.UR => "UR",
+        DevFlowStage.PM => "PM",
+        DevFlowStage.PO => "PO",
+        DevFlowStage.DEV => "DEV",
+        _ => s.ToString()
+    };
+
+    private static string GetGateStatusLabel(DevFlowGateStatus s) => s switch
+    {
+        DevFlowGateStatus.Pending => "Pendiente",
+        DevFlowGateStatus.Approved => "Aprobado",
+        DevFlowGateStatus.Rejected => "Rechazado",
+        _ => s.ToString()
+    };
+
+    private static Color GetStatusColor(DevFlowRunStatus s) => s switch
+    {
+        DevFlowRunStatus.Created => Color.Info,
+        DevFlowRunStatus.InProgress => Color.Primary,
+        DevFlowRunStatus.Paused => Color.Warning,
+        DevFlowRunStatus.Completed => Color.Success,
+        DevFlowRunStatus.Cancelled => Color.Error,
+        _ => Color.Default
+    };
+}
