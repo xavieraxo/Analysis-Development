@@ -235,6 +235,7 @@ builder.Services.AddScoped<IBehaviorProvider>(sp => sp.GetRequiredService<Behavi
 builder.Services.AddScoped<IEmailSender, EmailSender>();
 builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
 builder.Services.AddScoped<IDevFlowService, DevFlowService>();
+builder.Services.AddSingleton<IDevFlowPipeline, DevFlowPipeline>();
 
 // Registrar agentes
 builder.Services.AddScoped<IAgent, UrAgent>();
