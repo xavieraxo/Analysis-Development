@@ -37,4 +37,14 @@ public interface IDevFlowService
     /// <param name="cancellationToken">Token de cancelación.</param>
     /// <returns>Resultado con Response (200) o ErrorMessage y HttpStatusCode (404, 409, 400).</returns>
     Task<ExecuteStageResult> ExecuteStageAsync(int runId, ExecuteStageRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Aprobar o rechazar un gate del DevFlow. Crea o actualiza el gate.
+    /// </summary>
+    /// <param name="runId">ID del run.</param>
+    /// <param name="request">Stage, approved y comment opcional.</param>
+    /// <param name="decidedByUserId">ID del usuario que toma la decisión.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    /// <returns>Resultado con Response (200) o ErrorMessage y HttpStatusCode (404, 400).</returns>
+    Task<ApproveGateResult> ApproveGateAsync(int runId, ApproveGateRequest request, int decidedByUserId, CancellationToken cancellationToken = default);
 }

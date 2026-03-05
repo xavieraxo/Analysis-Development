@@ -208,6 +208,66 @@ public class DevFlowService : IDevFlowService
         });
     }
 
+    public async Task<ApproveGateResult> ApproveGateAsync(int runId, ApproveGateRequest request, int decidedByUserId, CancellationToken cancellationToken = default)
+    {
+        var run = await _context.DevFlowRuns
+            .Include(r => r.Gates)
+            .FirstOrDefaultAsync(r => r.Id == runId, cancellationToken);
+
+        if (run == null)
+            return ApproveGateResult.NotFound("El run no existe.");
+
+        if (run.Status == DevFlowRunStatus.Completed)
+            return ApproveGateResult.BadRequest("No se puede aprobar/rechazar un run ya completado.");
+
+        if (!Enum.IsDefined(typeof(DevFlowStage), request.Stage))
+            return ApproveGateResult.BadRequest("Etapa inválida.");
+
+        var gate = run.Gates.FirstOrDefault(g => g.Stage == request.Stage);
+        if (gate == null)
+        {
+            gate = new DevFlowGate
+            {
+                DevFlowRunId = run.Id,
+                Stage = request.Stage,
+                Status = DevFlowGateStatus.Pending,
+                CreatedAt = DateTime.UtcNow
+            };
+            run.Gates.Add(gate);
+        }
+
+        gate.Status = request.Approved ? DevFlowGateStatus.Approved : DevFlowGateStatus.Rejected;
+        gate.DecisionComment = request.Comment?.Trim();
+        gate.DecidedByUserId = decidedByUserId;
+        gate.DecidedAt = DateTime.UtcNow;
+
+        if (!request.Approved)
+        {
+            run.Status = DevFlowRunStatus.Cancelled;
+        }
+
+        run.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var gateDto = new DevFlowGateSummaryDto
+        {
+            Id = gate.Id,
+            Stage = gate.Stage,
+            Status = gate.Status,
+            DecisionComment = gate.DecisionComment,
+            DecidedByUserId = gate.DecidedByUserId,
+            DecidedAt = gate.DecidedAt,
+            CreatedAt = gate.CreatedAt
+        };
+
+        return ApproveGateResult.Success(new ApproveGateResponse
+        {
+            Gate = gateDto,
+            Status = run.Status,
+            CurrentStage = run.CurrentStage
+        });
+    }
+
     private static DevFlowRunResponse MapToResponse(DevFlowRun run) => new()
     {
         Id = run.Id,
