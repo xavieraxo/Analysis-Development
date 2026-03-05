@@ -793,6 +793,28 @@ app.MapPost("/api/devflow/runs/{id}/execute-stage", [Authorize(Policy = Authoriz
 .Produces(StatusCodes.Status404NotFound)
 .Produces(StatusCodes.Status409Conflict);
 
+app.MapPost("/api/devflow/runs/{id}/approve", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (int id, HttpContext context, IDevFlowService devFlowService, ApproveGateRequest request) =>
+{
+    var userIdClaim = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var decidedByUserId))
+    {
+        return Results.Json(new { message = "Token inválido" }, statusCode: 403);
+    }
+
+    var result = await devFlowService.ApproveGateAsync(id, request, decidedByUserId);
+
+    if (result.IsSuccess)
+        return Results.Ok(result.Response);
+
+    return Results.Json(new { message = result.ErrorMessage }, statusCode: result.HttpStatusCode);
+})
+.WithName("ApproveDevFlowGate")
+.Produces<ApproveGateResponse>(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status400BadRequest)
+.Produces(StatusCodes.Status401Unauthorized)
+.Produces(StatusCodes.Status403Forbidden)
+.Produces(StatusCodes.Status404NotFound);
+
 // ========== ENDPOINTS ADMIN INTERNO ==========
 // Solo SuperUsuario puede acceder a administración interna
 
