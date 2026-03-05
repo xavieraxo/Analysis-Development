@@ -1,4 +1,4 @@
-﻿@inject IAuthService AuthService
+@inject IAuthService AuthService
 @inject NavigationManager Navigation
 
 <MudNavMenu>
@@ -7,8 +7,8 @@
         Dashboard
     </MudNavLink>
     
-    <!-- Administración - Solo para Admin y SuperUsuario -->
-    @if (_isAuthenticated && _isAdminOrSuperUser)
+    <!-- Administración - Solo para SuperUsuario -->
+    @if (_isAuthenticated && _isSuperUsuario)
     {
         <MudNavGroup Title="Administración" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="true">
             <!-- Configuración - Navega a /configurations -->
@@ -35,27 +35,21 @@
 
 @code {
     private bool _isAuthenticated = false;
-    private bool _isAdminOrSuperUser = false;
+    private bool _isSuperUsuario = false;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            // Usar Task.Delay para asegurar que JS Runtime esté listo
             await Task.Delay(100);
-            
             _isAuthenticated = await AuthService.IsAuthenticatedAsync();
             if (_isAuthenticated)
-            {
-                var role = AuthService.GetUserRole();
-                _isAdminOrSuperUser = role == "Admin" || role == "SuperUsuario";
-            }
+                _isSuperUsuario = AuthService.GetUserRole() == global::Shared.Abstractions.AuthorizationRoles.SuperUsuario;
         }
         catch (Exception ex)
         {
-            // Si hay un error al verificar la autenticación, simplemente no mostrar el menú de admin
             _isAuthenticated = false;
-            _isAdminOrSuperUser = false;
+            _isSuperUsuario = false;
             Console.WriteLine($"Error en NavMenu.OnInitializedAsync: {ex.Message}");
         }
     }

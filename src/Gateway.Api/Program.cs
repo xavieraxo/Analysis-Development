@@ -107,6 +107,8 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin", "SuperUsuario"));
     options.AddPolicy("AdminOrSuperUser", policy => policy.RequireRole("Admin", "SuperUsuario"));
+    // Solo SuperUsuario puede modificar configuraciones internas (behaviors, configurations, admin)
+    options.AddPolicy(AuthorizationRoles.SuperUserOnlyPolicy, policy => policy.RequireRole(AuthorizationRoles.SuperUsuario));
 });
 
 // Configurar HttpClient para OpenAI
@@ -556,9 +558,10 @@ app.MapPost("/api/chat/run", [Authorize] async (
 .Produces<ChatResponse>(StatusCodes.Status200OK);
 
 // ========== ENDPOINTS DE CONFIGURACIÓN ==========
+// Solo SuperUsuario puede acceder a configuraciones internas
 
-// Obtener todas las configuraciones (todos los usuarios autenticados pueden ver)
-app.MapGet("/api/configurations", [Authorize] async (IConfigurationService configService) =>
+// Obtener todas las configuraciones
+app.MapGet("/api/configurations", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (IConfigurationService configService) =>
 {
     var configs = await configService.GetAllConfigurationsAsync();
     return Results.Ok(configs);
@@ -567,7 +570,7 @@ app.MapGet("/api/configurations", [Authorize] async (IConfigurationService confi
 .Produces<List<SystemConfigurationDto>>(StatusCodes.Status200OK);
 
 // Obtener configuraciones por tipo
-app.MapGet("/api/configurations/{type}", [Authorize] async (string type, IConfigurationService configService) =>
+app.MapGet("/api/configurations/{type}", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (string type, IConfigurationService configService) =>
 {
     var configs = await configService.GetConfigurationsByTypeAsync(type);
     return Results.Ok(configs);
@@ -575,8 +578,8 @@ app.MapGet("/api/configurations/{type}", [Authorize] async (string type, IConfig
 .WithName("GetConfigurationsByType")
 .Produces<List<SystemConfigurationDto>>(StatusCodes.Status200OK);
 
-// Crear configuración (todos los usuarios autenticados pueden crear)
-app.MapPost("/api/configurations", [Authorize] async (
+// Crear configuración
+app.MapPost("/api/configurations", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (
     HttpContext context,
     IConfigurationService configService,
     CreateSystemConfigurationRequest request) =>
@@ -595,8 +598,8 @@ app.MapPost("/api/configurations", [Authorize] async (
 .Produces<SystemConfigurationDto>(StatusCodes.Status201Created)
 .Produces(StatusCodes.Status400BadRequest);
 
-// Actualizar configuración (todos los usuarios autenticados pueden actualizar)
-app.MapPut("/api/configurations/{id}", [Authorize] async (
+// Actualizar configuración
+app.MapPut("/api/configurations/{id}", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (
     int id,
     HttpContext context,
     IConfigurationService configService,
@@ -616,8 +619,8 @@ app.MapPut("/api/configurations/{id}", [Authorize] async (
 .Produces<SystemConfigurationDto>(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status404NotFound);
 
-// Activar/Desactivar configuración (todos los usuarios autenticados pueden activar/desactivar)
-app.MapPatch("/api/configurations/{id}/toggle", [Authorize] async (
+// Activar/Desactivar configuración
+app.MapPatch("/api/configurations/{id}/toggle", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (
     int id,
     HttpContext context,
     IConfigurationService configService,
@@ -637,8 +640,8 @@ app.MapPatch("/api/configurations/{id}/toggle", [Authorize] async (
 .Produces(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status404NotFound);
 
-// Eliminar configuración (solo Admin y SuperUsuario pueden eliminar)
-app.MapDelete("/api/configurations/{id}", [Authorize(Policy = "AdminOrSuperUser")] async (
+// Eliminar configuración
+app.MapDelete("/api/configurations/{id}", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (
     int id,
     IConfigurationService configService) =>
 {
@@ -656,7 +659,8 @@ app.MapDelete("/api/configurations/{id}", [Authorize(Policy = "AdminOrSuperUser"
 .Produces(StatusCodes.Status404NotFound);
 
 // ========== ENDPOINTS DE BEHAVIORS ==========
-app.MapGet("/api/behaviors", [Authorize(Policy = "AdminOrSuperUser")] async (IBehaviorService behaviorService, CancellationToken ct) =>
+// Solo SuperUsuario puede acceder a behaviors (configuración interna)
+app.MapGet("/api/behaviors", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (IBehaviorService behaviorService, CancellationToken ct) =>
 {
     var list = await behaviorService.GetAllAsync(ct);
     return Results.Ok(list);
@@ -664,7 +668,7 @@ app.MapGet("/api/behaviors", [Authorize(Policy = "AdminOrSuperUser")] async (IBe
 .WithName("GetAllBehaviors")
 .Produces<List<BehaviorDto>>(StatusCodes.Status200OK);
 
-app.MapGet("/api/behaviors/{role}", [Authorize] async (AgentRole role, IBehaviorService behaviorService, CancellationToken ct) =>
+app.MapGet("/api/behaviors/{role}", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (AgentRole role, IBehaviorService behaviorService, CancellationToken ct) =>
 {
     var behavior = await behaviorService.GetByRoleAsync(role, ct);
     return Results.Ok(behavior);
@@ -673,7 +677,7 @@ app.MapGet("/api/behaviors/{role}", [Authorize] async (AgentRole role, IBehavior
 .Produces<BehaviorDto>(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status404NotFound);
 
-app.MapPost("/api/behaviors", [Authorize(Policy = "AdminOrSuperUser")] async (BehaviorUpsertRequest request, IBehaviorService behaviorService, CancellationToken ct) =>
+app.MapPost("/api/behaviors", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (BehaviorUpsertRequest request, IBehaviorService behaviorService, CancellationToken ct) =>
 {
     var behavior = await behaviorService.UpsertAsync(request, ct);
     return Results.Ok(behavior);
@@ -682,10 +686,11 @@ app.MapPost("/api/behaviors", [Authorize(Policy = "AdminOrSuperUser")] async (Be
 .Produces<BehaviorDto>(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status400BadRequest);
 
-// ========== ENDPOINTS SOLO ADMIN/SUPERUSUARIO ==========
+// ========== ENDPOINTS ADMIN INTERNO ==========
+// Solo SuperUsuario puede acceder a administración interna
 
-// Listar todos los proyectos (Admin/SuperUsuario)
-app.MapGet("/api/admin/projects", [Authorize(Policy = "AdminOrSuperUser")] async (IProjectService projectService) =>
+// Listar todos los proyectos
+app.MapGet("/api/admin/projects", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (IProjectService projectService) =>
 {
     var projects = await projectService.GetAllProjectsAsync();
     return Results.Ok(projects);
@@ -693,8 +698,8 @@ app.MapGet("/api/admin/projects", [Authorize(Policy = "AdminOrSuperUser")] async
 .WithName("GetAllProjects")
 .Produces<List<ProjectDto>>(StatusCodes.Status200OK);
 
-// Obtener logs de una conversación (Admin/SuperUsuario)
-app.MapGet("/api/admin/logs/{conversationId}", [Authorize(Policy = "AdminOrSuperUser")] async (string conversationId, IAgentLoggingService loggingService) =>
+// Obtener logs de una conversación
+app.MapGet("/api/admin/logs/{conversationId}", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (string conversationId, IAgentLoggingService loggingService) =>
 {
     var logs = await loggingService.GetConversationLogsAsync(conversationId);
     return Results.Ok(logs);
@@ -702,8 +707,8 @@ app.MapGet("/api/admin/logs/{conversationId}", [Authorize(Policy = "AdminOrSuper
 .WithName("GetConversationLogs")
 .Produces<List<AgentLogEntry>>(StatusCodes.Status200OK);
 
-// Obtener todos los logs (Admin/SuperUsuario)
-app.MapGet("/api/admin/logs", [Authorize(Policy = "AdminOrSuperUser")] async (IAgentLoggingService loggingService, int? limit) =>
+// Obtener todos los logs
+app.MapGet("/api/admin/logs", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (IAgentLoggingService loggingService, int? limit) =>
 {
     var logs = await loggingService.GetAllLogsAsync(limit);
     return Results.Ok(logs);
@@ -711,8 +716,8 @@ app.MapGet("/api/admin/logs", [Authorize(Policy = "AdminOrSuperUser")] async (IA
 .WithName("GetAllLogs")
 .Produces<List<AgentLogEntry>>(StatusCodes.Status200OK);
 
-// Migrar usuarios a Identity (Admin/SuperUsuario) - Endpoint temporal para migración
-app.MapPost("/api/admin/migrate-users", [Authorize(Policy = "AdminOrSuperUser")] async (IUserMigrationService migrationService) =>
+// Migrar usuarios a Identity - Endpoint temporal para migración
+app.MapPost("/api/admin/migrate-users", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (IUserMigrationService migrationService) =>
 {
     var result = await migrationService.MigrateUsersToIdentityAsync();
     return Results.Ok(result);
@@ -720,87 +725,31 @@ app.MapPost("/api/admin/migrate-users", [Authorize(Policy = "AdminOrSuperUser")]
 .WithName("MigrateUsersToIdentity")
 .Produces<MigrationResult>(StatusCodes.Status200OK);
 
-// ========== ENDPOINTS SOLO SUPERUSUARIO ==========
+// ========== ENDPOINTS USUARIOS ADMIN ==========
 
-// Listar todos los usuarios (Solo SuperUsuario)
-app.MapGet("/api/admin/users", [Authorize] async (HttpContext context, IAuthService authService) =>
+// Listar todos los usuarios
+app.MapGet("/api/admin/users", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (IAuthService authService) =>
 {
-    var userId = int.Parse(context.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-    var user = await authService.GetUserByIdAsync(userId);
-    
-    if (user == null || user.Role != Data.Models.UserRole.SuperUsuario)
-    {
-        return Results.Forbid();
-    }
-
     var users = await authService.GetAllUsersAsync();
     return Results.Ok(users);
 })
 .WithName("GetAllUsers")
 .Produces<List<UserDto>>(StatusCodes.Status200OK);
 
-// Crear usuario (SuperUsuario, Admin, Usuario Final, Empresa - con restricciones)
-app.MapPost("/api/admin/users", [Authorize] async (HttpContext context, IAuthService authService, CreateUserRequest request, ILogger<Program> logger) =>
+// Crear usuario (solo SuperUsuario)
+app.MapPost("/api/admin/users", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (HttpContext context, IAuthService authService, CreateUserRequest request, ILogger<Program> logger) =>
 {
     var userIdClaim = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
-    var roleClaim = context.User.FindFirstValue(ClaimTypes.Role);
-    
-    logger.LogInformation($"Token claims - UserId: {userIdClaim}, Role: {roleClaim}");
-    
     if (string.IsNullOrEmpty(userIdClaim))
     {
-        logger.LogWarning("Token no contiene UserId");
         return Results.Json(new { message = "Token inválido" }, statusCode: 403);
     }
-    
     var userId = int.Parse(userIdClaim);
-    var user = await authService.GetUserByIdAsync(userId);
-    
-    if (user == null)
-    {
-        logger.LogWarning($"Usuario no encontrado en BD: {userId}");
-        return Results.Forbid();
-    }
-
-    logger.LogInformation($"Intento de crear usuario. Creador desde BD: {user.Role}, Creador desde Token: {roleClaim}, Nuevo rol: {request.Role}");
-
-    // Verificar que el rol del token coincide con el de la BD (validación de seguridad)
-    if (!string.IsNullOrEmpty(roleClaim))
-    {
-        var roleFromToken = roleClaim;
-        var roleFromDb = user.Role.ToString();
-        
-        if (roleFromToken != roleFromDb)
-        {
-            logger.LogWarning($"Inconsistencia de roles: Token={roleFromToken}, BD={roleFromDb}");
-        }
-    }
-
-    // Verificar que el usuario tiene permiso para crear usuarios
-    // SuperUsuario, Admin, Usuario Final y Empresa pueden crear usuarios (con restricciones)
-    if (user.Role != Data.Models.UserRole.SuperUsuario && 
-        user.Role != Data.Models.UserRole.Admin &&
-        user.Role != Data.Models.UserRole.Final &&
-        user.Role != Data.Models.UserRole.Empresa)
-    {
-        logger.LogWarning($"Usuario {user.Role} no tiene permiso para crear usuarios");
-        return Results.Forbid();
-    }
-
-    // Validación adicional: Solo SuperUsuario y Admin pueden crear Administradores
-    if (request.Role == Data.Models.UserRole.Admin)
-    {
-        if (user.Role != Data.Models.UserRole.SuperUsuario && user.Role != Data.Models.UserRole.Admin)
-        {
-            logger.LogWarning($"Usuario {user.Role} intentó crear un Administrador sin permiso");
-            return Results.Json(new { message = "Solo SuperUsuario y Administradores pueden crear usuarios Administradores." }, statusCode: 403);
-        }
-    }
 
     var newUser = await authService.CreateUserAsync(request, userId);
     if (newUser == null)
     {
-        logger.LogWarning($"Error al crear usuario. Email: {request.Email}, Rol solicitado: {request.Role}, Creador: {user.Role}");
+        logger.LogWarning($"Error al crear usuario. Email: {request.Email}, Rol solicitado: {request.Role}");
         return Results.BadRequest(new
         {
             message = "Error al crear usuario. Verifica que el email no exista, el rol sea permitido y la contraseña cumpla: 8+ caracteres, 1 mayúscula, 1 número, 3 caracteres únicos."
@@ -815,17 +764,9 @@ app.MapPost("/api/admin/users", [Authorize] async (HttpContext context, IAuthSer
 .Produces(StatusCodes.Status400BadRequest)
 .Produces(StatusCodes.Status403Forbidden);
 
-// Actualizar estado de usuario (Solo SuperUsuario)
-app.MapPut("/api/admin/users/{id}/status", [Authorize] async (int id, HttpContext context, IAuthService authService, bool isActive) =>
+// Actualizar estado de usuario
+app.MapPut("/api/admin/users/{id}/status", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (int id, IAuthService authService, bool isActive) =>
 {
-    var userId = int.Parse(context.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-    var user = await authService.GetUserByIdAsync(userId);
-    
-    if (user == null || user.Role != Data.Models.UserRole.SuperUsuario)
-    {
-        return Results.Forbid();
-    }
-
     var result = await authService.UpdateUserStatusAsync(id, isActive);
     if (!result)
     {
