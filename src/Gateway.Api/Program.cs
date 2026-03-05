@@ -236,6 +236,7 @@ builder.Services.AddScoped<IEmailSender, EmailSender>();
 builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
 builder.Services.AddScoped<IDevFlowService, DevFlowService>();
 builder.Services.AddSingleton<IDevFlowPipeline, DevFlowPipeline>();
+builder.Services.AddScoped<IDevFlowAgentDispatcher, DevFlowAgentDispatcher>();
 
 // Registrar agentes
 builder.Services.AddScoped<IAgent, UrAgent>();
