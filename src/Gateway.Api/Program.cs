@@ -237,6 +237,7 @@ builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
 builder.Services.AddScoped<IDevFlowService, DevFlowService>();
 builder.Services.AddSingleton<IDevFlowPipeline, DevFlowPipeline>();
 builder.Services.AddScoped<IDevFlowAgentDispatcher, DevFlowAgentDispatcher>();
+builder.Services.AddSingleton<IBranchNameGenerator, DefaultBranchNameGenerator>();
 
 // Registrar agentes
 builder.Services.AddScoped<IAgent, UrAgent>();
