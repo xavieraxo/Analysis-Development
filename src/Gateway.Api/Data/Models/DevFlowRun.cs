@@ -5,10 +5,10 @@ namespace Data.Models;
 /// </summary>
 public enum DevFlowStage
 {
-    UR = 0,
-    PM = 1,
-    PO = 2,
-    DEV = 3
+    UR = 0,   // Usuario Representante
+    PM = 1,   // Project Manager
+    PO = 2,   // Product Owner
+    DEV = 3   // Desarrollador
 }
 
 /// <summary>
@@ -24,7 +24,7 @@ public enum DevFlowRunStatus
 }
 
 /// <summary>
-/// Representa una ejecución del flujo DevFlow.
+/// Representa una ejecución del flujo DevFlow: idea de cambio, estado y etapas.
 /// </summary>
 public class DevFlowRun
 {
