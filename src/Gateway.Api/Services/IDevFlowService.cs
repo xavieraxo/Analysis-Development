@@ -47,4 +47,12 @@ public interface IDevFlowService
     /// <param name="cancellationToken">Token de cancelación.</param>
     /// <returns>Resultado con Response (200) o ErrorMessage y HttpStatusCode (404, 400).</returns>
     Task<ApproveGateResult> ApproveGateAsync(int runId, ApproveGateRequest request, int decidedByUserId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Obtiene el Branch Plan de un run para exportación (JSON o Markdown).
+    /// </summary>
+    /// <param name="runId">ID del run.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    /// <returns>DTO del plan o null si run no existe o no tiene BranchPlan.</returns>
+    Task<BranchPlanExportDto?> GetBranchPlanExportAsync(int runId, CancellationToken cancellationToken = default);
 }
