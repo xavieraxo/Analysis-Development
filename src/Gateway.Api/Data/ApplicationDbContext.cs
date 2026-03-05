@@ -32,6 +32,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<SystemConfiguration> SystemConfigurations { get; set; }
     public DbSet<Behavior> Behaviors { get; set; }
     public DbSet<PasswordRecoveryToken> PasswordRecoveryTokens { get; set; }
+    public DbSet<DevFlowRun> DevFlowRuns { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -115,6 +116,26 @@ public class ApplicationDbContext : IdentityDbContext<
             entity.Property(e => e.Expiration).IsRequired();
             entity.Property(e => e.Used).IsRequired();
             entity.HasIndex(e => new { e.Email, e.Code });
+        });
+
+        modelBuilder.Entity<DevFlowRun>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Description).IsRequired();
+            entity.Property(e => e.Status).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
+            entity.HasOne(e => e.CreatedByUser)
+                  .WithMany()
+                  .HasForeignKey(e => e.CreatedByUserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Project)
+                  .WithMany()
+                  .HasForeignKey(e => e.ProjectId)
+                  .OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.CreatedByUserId);
+            entity.HasIndex(e => e.ProjectId);
         });
     }
 }
