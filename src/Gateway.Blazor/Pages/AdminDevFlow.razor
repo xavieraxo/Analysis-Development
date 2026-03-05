@@ -1,0 +1,199 @@
+@page "/admin/devflow"
+@inject IAuthService AuthService
+@inject IDevFlowApiService DevFlowApi
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>DevFlow Runs - Multi-Agent System</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudText Typo="Typo.h4" GutterBottom="true">DevFlow Runs</MudText>
+    
+    @if (!_isAuthenticated)
+    {
+        <MudAlert Severity="Severity.Warning">Debes iniciar sesión para ver esta página.</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="NavigateToLogin">
+            Ir al Login
+        </MudButton>
+    }
+    else if (!_isSuperUsuario)
+    {
+        <MudAlert Severity="Severity.Error">No autorizado. Solo SuperUsuario puede acceder.</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="NavigateToHome">
+            Ir al Home
+        </MudButton>
+    }
+    else
+    {
+        <!-- Filtros -->
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <MudSelect T="DevFlowRunStatus?" @bind-Value="_filterStatus" Label="Estado" 
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width: 150px;"
+                          Clearable="true">
+                    @foreach (var s in Enum.GetValues<DevFlowRunStatus>())
+                    {
+                        <MudSelectItem T="DevFlowRunStatus?" Value="@s">@GetStatusLabel(s)</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect T="DevFlowStage?" @bind-Value="_filterStage" Label="Etapa" 
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width: 150px;"
+                          Clearable="true">
+                    @foreach (var s in Enum.GetValues<DevFlowStage>())
+                    {
+                        <MudSelectItem T="DevFlowStage?" Value="@s">@GetStageLabel(s)</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudNumericField T="int?" @bind-Value="_filterProjectId" Label="ProjectId" 
+                                 Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width: 120px;"
+                                 Clearable="true" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadRuns"
+                           StartIcon="@Icons.Material.Filled.FilterList">
+                    Filtrar
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+
+        <!-- Tabla y Refresh -->
+        <MudStack Spacing="3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.h6">Listado</MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
+                           OnClick="LoadRuns" Disabled="_isLoading">
+                    Actualizar
+                </MudButton>
+            </MudStack>
+
+            @if (_unauthorized)
+            {
+                <MudAlert Severity="Severity.Error">No autorizado para ver DevFlow Runs.</MudAlert>
+            }
+            else if (_isLoading)
+            {
+                <MudProgressCircular Indeterminate="true" Class="mt-4" />
+            }
+            else if (_response != null && _response.Items.Any())
+            {
+                <MudTable Items="_response.Items" Hover="true" Dense="true" Class="mt-2" Breakpoint="Breakpoint.Sm">
+                    <HeaderContent>
+                        <MudTh>Id</MudTh>
+                        <MudTh>Creado</MudTh>
+                        <MudTh>Título</MudTh>
+                        <MudTh>Estado</MudTh>
+                        <MudTh>Etapa</MudTh>
+                        <MudTh>ProjectId</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Id">@context.Id</MudTd>
+                        <MudTd DataLabel="Creado">@context.CreatedAt.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                        <MudTd DataLabel="Título">@context.Title</MudTd>
+                        <MudTd DataLabel="Estado">
+                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)" 
+                                     Variant="Variant.Filled">@GetStatusLabel(context.Status)</MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Etapa">@(context.CurrentStage.HasValue ? GetStageLabel(context.CurrentStage.Value) : "-")</MudTd>
+                        <MudTd DataLabel="ProjectId">@(context.ProjectId?.ToString() ?? "-")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+                <MudText Typo="Typo.caption">Total: @_response.Total (página @_response.Page)</MudText>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info" Class="mt-4">No hay DevFlow Runs.</MudAlert>
+            }
+        </MudStack>
+    }
+</MudContainer>
+
+@code {
+    private bool _isAuthenticated;
+    private bool _isSuperUsuario;
+    private bool _isLoading = true;
+    private bool _unauthorized;
+    private PagedResponse<DevFlowRunListItem>? _response;
+    private DevFlowRunStatus? _filterStatus;
+    private DevFlowStage? _filterStage;
+    private int? _filterProjectId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        if (_isAuthenticated)
+            _isSuperUsuario = AuthService.GetUserRole() == global::Shared.Abstractions.AuthorizationRoles.SuperUsuario;
+
+        if (!_isAuthenticated)
+            Navigation.NavigateTo("/login");
+        else if (!_isSuperUsuario)
+            Navigation.NavigateTo("/Home");
+        else
+            await LoadRuns();
+    }
+
+    private async Task LoadRuns()
+    {
+        if (!_isSuperUsuario) return;
+        _isLoading = true;
+        _unauthorized = false;
+        try
+        {
+            var query = new DevFlowRunsQuery
+            {
+                Page = 1,
+                PageSize = 50,
+                Status = _filterStatus,
+                Stage = _filterStage,
+                ProjectId = _filterProjectId
+            };
+            _response = await DevFlowApi.ListRunsAsync(query);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _unauthorized = true;
+            Snackbar.Add("Sesión expirada", Severity.Warning);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("403") || ex.Message.Contains("autorizado") || ex.Message.Contains("Forbidden", StringComparison.OrdinalIgnoreCase))
+        {
+            _unauthorized = true;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string GetStatusLabel(DevFlowRunStatus s) => s switch
+    {
+        DevFlowRunStatus.Created => "Creado",
+        DevFlowRunStatus.InProgress => "En progreso",
+        DevFlowRunStatus.Paused => "Pausado",
+        DevFlowRunStatus.Completed => "Completado",
+        DevFlowRunStatus.Cancelled => "Cancelado",
+        _ => s.ToString()
+    };
+
+    private static string GetStageLabel(DevFlowStage s) => s switch
+    {
+        DevFlowStage.UR => "UR",
+        DevFlowStage.PM => "PM",
+        DevFlowStage.PO => "PO",
+        DevFlowStage.DEV => "DEV",
+        _ => s.ToString()
+    };
+
+    private static Color GetStatusColor(DevFlowRunStatus s) => s switch
+    {
+        DevFlowRunStatus.Created => Color.Info,
+        DevFlowRunStatus.InProgress => Color.Primary,
+        DevFlowRunStatus.Paused => Color.Warning,
+        DevFlowRunStatus.Completed => Color.Success,
+        DevFlowRunStatus.Cancelled => Color.Error,
+        _ => Color.Default
+    };
+
+    private void NavigateToLogin() => Navigation.NavigateTo("/login");
+    private void NavigateToHome() => Navigation.NavigateTo("/Home");
+}
