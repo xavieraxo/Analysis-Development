@@ -1,0 +1,38 @@
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Title</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudPaper Class="pa-3 mt-2" Style="max-height: 400px; overflow-y: auto;">
+            <pre style="margin: 0; font-family: monospace; font-size: 0.85em; white-space: pre-wrap; word-break: break-all;">@Content</pre>
+        </MudPaper>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="HandleCopy" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ContentCopy">Copy</MudButton>
+        <MudButton OnClick="Close" Color="Color.Secondary">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Content { get; set; } = string.Empty;
+
+    private async Task HandleCopy()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", Content);
+            Snackbar.Add("Copiado al portapapeles", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al copiar: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void Close() => MudDialog?.Close(DialogResult.Ok(true));
+}

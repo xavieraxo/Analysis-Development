@@ -92,6 +92,14 @@ public class ApiService : IApiService
         return JsonSerializer.Deserialize<T>(content, _jsonOptions);
     }
 
+    public async Task<string> GetStringAsync(string endpoint)
+    {
+        var request = await CreateRequestAsync(HttpMethod.Get, endpoint);
+        var response = await _httpClient.SendAsync(request);
+        await ThrowIfNotSuccessAsync(response);
+        return await response.Content.ReadAsStringAsync();
+    }
+
     public async Task<T?> PostAsync<T>(string endpoint, object? data = null)
     {
         var request = await CreateRequestAsync(HttpMethod.Post, endpoint, data);

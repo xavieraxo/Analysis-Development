@@ -31,4 +31,14 @@ public interface IDevFlowApiService
     /// Aprueba o rechaza un gate.
     /// </summary>
     Task<ApproveGateResponse?> ApproveGateAsync(int id, ApproveGateRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Obtiene el Branch Plan en JSON.
+    /// </summary>
+    Task<BranchPlanExportDto?> GetBranchPlanJsonAsync(int runId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Obtiene el Branch Plan en Markdown.
+    /// </summary>
+    Task<string> GetBranchPlanMarkdownAsync(int runId, CancellationToken ct = default);
 }

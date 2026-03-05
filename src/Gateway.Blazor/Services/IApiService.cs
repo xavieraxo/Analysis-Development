@@ -5,6 +5,10 @@ namespace Gateway.Blazor.Services;
 public interface IApiService
 {
     Task<T?> GetAsync<T>(string endpoint);
+    /// <summary>
+    /// Obtiene la respuesta como texto plano (p. ej. Markdown).
+    /// </summary>
+    Task<string> GetStringAsync(string endpoint);
     Task<T?> PostAsync<T>(string endpoint, object? data = null);
     Task<T?> PutAsync<T>(string endpoint, object? data = null);
     Task<T?> DeleteAsync<T>(string endpoint);
