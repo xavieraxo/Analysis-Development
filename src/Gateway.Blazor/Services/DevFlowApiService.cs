@@ -41,6 +41,16 @@ public class DevFlowApiService : IDevFlowApiService
         return await _api.PostAsync<ApproveGateResponse>($"/api/devflow/runs/{id}/approve", request);
     }
 
+    public async Task<BranchPlanExportDto?> GetBranchPlanJsonAsync(int runId, CancellationToken ct = default)
+    {
+        return await _api.GetAsync<BranchPlanExportDto>($"/api/devflow/runs/{runId}/branch-plan");
+    }
+
+    public async Task<string> GetBranchPlanMarkdownAsync(int runId, CancellationToken ct = default)
+    {
+        return await _api.GetStringAsync($"/api/devflow/runs/{runId}/branch-plan?format=md");
+    }
+
     private static string BuildQueryString(DevFlowRunsQuery query)
     {
         var parameters = new List<string>

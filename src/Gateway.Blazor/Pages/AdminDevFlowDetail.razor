@@ -3,6 +3,7 @@
 @inject IDevFlowApiService DevFlowApi
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>DevFlow Run @Id - Multi-Agent System</PageTitle>
 
@@ -150,6 +151,71 @@
                     <MudText Typo="Typo.body2">Sin artifacts todavía.</MudText>
                 }
             </MudPaper>
+
+            <!-- Branch Plan -->
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                    <MudText Typo="Typo.h6">Branch Plan</MudText>
+                    <MudStack Row="true" Spacing="1">
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Refresh"
+                                   OnClick="LoadBranchPlan" Disabled="_branchPlanLoading">
+                            Cargar
+                        </MudButton>
+                        @if (_branchPlan != null)
+                        {
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ContentCopy"
+                                       OnClick="ShowCopyJsonDialog" Disabled="_branchPlanLoading">
+                                Copy JSON
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ContentCopy"
+                                       OnClick="ShowCopyMarkdownDialog" Disabled="_branchPlanLoading">
+                                Copy MD
+                            </MudButton>
+                        }
+                    </MudStack>
+                </MudStack>
+                @if (_branchPlanNotFound)
+                {
+                    <MudAlert Severity="Severity.Info">Branch plan no existe para este run.</MudAlert>
+                }
+                else if (_branchPlanLoading)
+                {
+                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
+                }
+                else if (_branchPlan != null && _branchPlan.Items.Any())
+                {
+                    <MudTable Items="@_branchPlan.Items.OrderBy(i => i.Order)" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                        <HeaderContent>
+                            <MudTh>Order</MudTh>
+                            <MudTh>Story</MudTh>
+                            <MudTh>Task</MudTh>
+                            <MudTh>Branch</MudTh>
+                            <MudTh>Title</MudTh>
+                            <MudTh>Area</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Order">@context.Order</MudTd>
+                            <MudTd DataLabel="Story">@context.StoryId</MudTd>
+                            <MudTd DataLabel="Task">@context.TaskId</MudTd>
+                            <MudTd DataLabel="Branch">@context.BranchName</MudTd>
+                            <MudTd DataLabel="Title">@context.Title</MudTd>
+                            <MudTd DataLabel="Area">@context.Area</MudTd>
+                            <MudTd DataLabel="">
+                                @if (!string.IsNullOrWhiteSpace(context.Description))
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ExpandMore"
+                                               OnClick="@(() => ShowDescriptionDrawer(context))">Ver</MudButton>
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+                else if (_branchPlan != null)
+                {
+                    <MudText Typo="Typo.body2">Branch plan vacío.</MudText>
+                }
+            </MudPaper>
         </MudStack>
     }
     else if (_isLoading)
@@ -171,6 +237,9 @@
     private DevFlowRunDetailResponse? _run;
     private string _executeInputText = string.Empty;
     private Dictionary<DevFlowStage, string> _gateComments = new();
+    private BranchPlanExportDto? _branchPlan;
+    private bool _branchPlanLoading;
+    private bool _branchPlanNotFound;
 
     private static readonly DevFlowStage[] AllStages = { DevFlowStage.UR, DevFlowStage.PM, DevFlowStage.PO, DevFlowStage.DEV };
 
@@ -352,4 +421,70 @@
         DevFlowRunStatus.Cancelled => Color.Error,
         _ => Color.Default
     };
+
+    private async Task LoadBranchPlan()
+    {
+        if (!_isSuperUsuario || Id <= 0) return;
+        _branchPlanLoading = true;
+        _branchPlanNotFound = false;
+        _branchPlan = null;
+        try
+        {
+            _branchPlan = await DevFlowApi.GetBranchPlanJsonAsync(Id);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("404"))
+        {
+            _branchPlanNotFound = true;
+            Snackbar.Add("Branch plan no existe para este run", Severity.Info);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("403") || ex.Message.Contains("autorizado", StringComparison.OrdinalIgnoreCase))
+        {
+            Snackbar.Add("No autorizado", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _branchPlanLoading = false;
+        }
+    }
+
+    private async Task ShowCopyJsonDialog()
+    {
+        if (_branchPlan == null) return;
+        var json = System.Text.Json.JsonSerializer.Serialize(_branchPlan, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        await ShowCopyDialog("Branch Plan (JSON)", json);
+    }
+
+    private async Task ShowCopyMarkdownDialog()
+    {
+        try
+        {
+            var md = await DevFlowApi.GetBranchPlanMarkdownAsync(Id);
+            await ShowCopyDialog("Branch Plan (Markdown)", md);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("404"))
+        {
+            Snackbar.Add("Branch plan no existe para este run", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ShowCopyDialog(string title, string content)
+    {
+        var parameters = new DialogParameters { ["Title"] = title, ["Content"] = content };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true };
+        await DialogService.ShowAsync<BranchPlanCopyDialog>(title, parameters, options);
+    }
+
+    private async Task ShowDescriptionDrawer(BranchPlanItemExportDto item)
+    {
+        var parameters = new DialogParameters { ["Title"] = $"{item.TaskId} - {item.Title}", ["Content"] = item.Description ?? "" };
+        await DialogService.ShowAsync<BranchPlanCopyDialog>("Descripción", parameters, new DialogOptions { MaxWidth = MaxWidth.Small });
+    }
 }
