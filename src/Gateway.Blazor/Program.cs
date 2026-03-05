@@ -29,6 +29,7 @@ builder.Services.AddScoped(sp => new HttpClient
 // Servicios personalizados
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IApiService, ApiService>();
+builder.Services.AddScoped<IDevFlowApiService, DevFlowApiService>();
 builder.Services.AddScoped<IBehaviorApiService, BehaviorApiService>();
 
 // Autenticación y autorización para Blazor
