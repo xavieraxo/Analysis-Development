@@ -61,3 +61,28 @@ public class DevFlowRunsQuery
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 20;
 }
+
+/// <summary>
+/// Request para crear un DevFlow Run.
+/// </summary>
+public class CreateDevFlowRunRequest
+{
+    public int? ProjectId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Respuesta de un DevFlow Run creado.
+/// </summary>
+public class DevFlowRunResponse
+{
+    public int Id { get; set; }
+    public int? ProjectId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public DevFlowRunStatus Status { get; set; }
+    public DevFlowStage? CurrentStage { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}

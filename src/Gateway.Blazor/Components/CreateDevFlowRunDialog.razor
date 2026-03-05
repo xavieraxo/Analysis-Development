@@ -1,0 +1,74 @@
+@inject IApiService ApiService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Nuevo DevFlow Run</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudSelect T="int?" @bind-Value="_projectId" Label="Proyecto" Variant="Variant.Outlined"
+                       Clearable="true">
+                <MudSelectItem T="int?" Value="@((int?)null)">Sin proyecto</MudSelectItem>
+                @if (_projects != null)
+                {
+                    @foreach (var p in _projects)
+                    {
+                        <MudSelectItem T="int?" Value="@p.Id">@p.Name (Id: @p.Id)</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+            <MudTextField @bind-Value="_title" Label="Título *" Variant="Variant.Outlined" Required="true"
+                         Immediate="true" MaxLength="255" Counter="255"
+                         Error="@(!string.IsNullOrWhiteSpace(_title) == false && _touched)"
+                         ErrorText="@(_touched && string.IsNullOrWhiteSpace(_title) ? "El título es requerido" : null)" />
+            <MudTextField @bind-Value="_description" Label="Descripción" Variant="Variant.Outlined"
+                         Lines="4" Class="mt-2" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Submit" Color="Color.Primary" Variant="Variant.Filled">Crear</MudButton>
+        <MudButton OnClick="Cancel" Color="Color.Secondary">Cancelar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance? MudDialog { get; set; }
+
+    private int? _projectId;
+    private string _title = string.Empty;
+    private string _description = string.Empty;
+    private bool _touched;
+    private List<Project>? _projects;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private async Task LoadProjects()
+    {
+        try
+        {
+            _projects = await ApiService.GetAsync<List<Project>>("/api/admin/projects") ?? new List<Project>();
+        }
+        catch
+        {
+            _projects = new List<Project>();
+        }
+    }
+
+    private void Submit()
+    {
+        _touched = true;
+        if (string.IsNullOrWhiteSpace(_title))
+            return;
+        MudDialog?.Close(DialogResult.Ok(new CreateDevFlowRunRequest
+        {
+            ProjectId = _projectId,
+            Title = _title.Trim(),
+            Description = _description?.Trim() ?? string.Empty
+        }));
+    }
+
+    private void Cancel() => MudDialog?.Cancel();
+}
