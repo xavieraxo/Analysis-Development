@@ -234,6 +234,7 @@ builder.Services.AddScoped<IBehaviorService>(sp => sp.GetRequiredService<Behavio
 builder.Services.AddScoped<IBehaviorProvider>(sp => sp.GetRequiredService<BehaviorService>());
 builder.Services.AddScoped<IEmailSender, EmailSender>();
 builder.Services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
+builder.Services.AddScoped<IDevFlowService, DevFlowService>();
 
 // Registrar agentes
 builder.Services.AddScoped<IAgent, UrAgent>();
@@ -685,6 +686,39 @@ app.MapPost("/api/behaviors", [Authorize(Policy = AuthorizationRoles.SuperUserOn
 .WithName("UpsertBehavior")
 .Produces<BehaviorDto>(StatusCodes.Status200OK)
 .Produces(StatusCodes.Status400BadRequest);
+
+// ========== ENDPOINTS DEVFLOW ==========
+// Solo SuperUsuario puede crear y gestionar DevFlow runs
+
+app.MapPost("/api/devflow/runs", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (
+    HttpContext context,
+    IDevFlowService devFlowService,
+    CreateDevFlowRunRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Title))
+    {
+        return Results.BadRequest(new { message = "El título es requerido" });
+    }
+
+    var userIdClaim = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var createdByUserId))
+    {
+        return Results.Json(new { message = "Token inválido" }, statusCode: 403);
+    }
+
+    var run = await devFlowService.CreateRunAsync(request, createdByUserId);
+    if (run == null)
+    {
+        return Results.BadRequest(new { message = "El ProjectId no existe" });
+    }
+
+    return Results.Created($"/api/devflow/runs/{run.Id}", run);
+})
+.WithName("CreateDevFlowRun")
+.Produces<DevFlowRunResponse>(StatusCodes.Status201Created)
+.Produces(StatusCodes.Status400BadRequest)
+.Produces(StatusCodes.Status401Unauthorized)
+.Produces(StatusCodes.Status403Forbidden);
 
 // ========== ENDPOINTS ADMIN INTERNO ==========
 // Solo SuperUsuario puede acceder a administración interna
