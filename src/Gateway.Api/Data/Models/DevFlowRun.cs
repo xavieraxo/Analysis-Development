@@ -24,6 +24,16 @@ public enum DevFlowRunStatus
 }
 
 /// <summary>
+/// Estado de aprobación de un gate entre etapas del DevFlow.
+/// </summary>
+public enum DevFlowGateStatus
+{
+    Pending = 0,
+    Approved = 1,
+    Rejected = 2
+}
+
+/// <summary>
 /// Representa una ejecución del flujo DevFlow: idea de cambio, estado y etapas.
 /// </summary>
 public class DevFlowRun
@@ -41,4 +51,5 @@ public class DevFlowRun
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public List<DevFlowArtifact> Artifacts { get; set; } = new();
+    public List<DevFlowGate> Gates { get; set; } = new();
 }
