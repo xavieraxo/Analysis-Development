@@ -35,6 +35,8 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<DevFlowRun> DevFlowRuns { get; set; }
     public DbSet<DevFlowArtifact> DevFlowArtifacts { get; set; }
     public DbSet<DevFlowGate> DevFlowGates { get; set; }
+    public DbSet<BranchPlan> BranchPlans { get; set; }
+    public DbSet<BranchPlanItem> BranchPlanItems { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -172,6 +174,43 @@ public class ApplicationDbContext : IdentityDbContext<
                   .OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => e.DevFlowRunId);
             entity.HasIndex(e => new { e.DevFlowRunId, e.Stage });
+        });
+
+        modelBuilder.Entity<BranchPlan>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.FormatVersion).IsRequired();
+            entity.HasOne(e => e.DevFlowRun)
+                  .WithOne(r => r.BranchPlan)
+                  .HasForeignKey<BranchPlan>(e => e.DevFlowRunId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.CreatedByUser)
+                  .WithMany()
+                  .HasForeignKey(e => e.CreatedByUserId)
+                  .OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.DevFlowRunId).IsUnique();
+            entity.HasIndex(e => e.CreatedByUserId);
+        });
+
+        modelBuilder.Entity<BranchPlanItem>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.StoryId).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.TaskId).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Area).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.BranchName).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.Description).HasMaxLength(2000);
+            entity.Property(e => e.Order).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.HasOne(e => e.BranchPlan)
+                  .WithMany(p => p.Items)
+                  .HasForeignKey(e => e.BranchPlanId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.BranchPlanId);
+            entity.HasIndex(e => e.BranchName);
+            entity.HasIndex(e => new { e.BranchPlanId, e.TaskId }).IsUnique();
         });
     }
 }
