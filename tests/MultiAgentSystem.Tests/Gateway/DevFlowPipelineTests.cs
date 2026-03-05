@@ -84,4 +84,24 @@ public class DevFlowPipelineTests
 
         Assert.Equal(expectedRole, role);
     }
+
+    [Fact]
+    public void GetPreviousStage_EnUR_DevuelveNull()
+    {
+        var prev = _pipeline.GetPreviousStage(DevFlowStage.UR);
+
+        Assert.Null(prev);
+    }
+
+    [Theory]
+    [InlineData(DevFlowStage.PM, DevFlowStage.UR)]
+    [InlineData(DevFlowStage.PO, DevFlowStage.PM)]
+    [InlineData(DevFlowStage.DEV, DevFlowStage.PO)]
+    public void GetPreviousStage_TransicionesCorrectas(DevFlowStage current, DevFlowStage expectedPrev)
+    {
+        var prev = _pipeline.GetPreviousStage(current);
+
+        Assert.NotNull(prev);
+        Assert.Equal(expectedPrev, prev.Value);
+    }
 }

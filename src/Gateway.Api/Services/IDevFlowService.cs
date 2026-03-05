@@ -28,4 +28,13 @@ public interface IDevFlowService
     /// <param name="query">Parámetros de filtro y paginación.</param>
     /// <returns>Respuesta paginada. Null si pageSize fuera de rango.</returns>
     Task<PagedResponse<DevFlowRunListItem>?> GetRunsAsync(DevFlowRunsQueryParams query);
+
+    /// <summary>
+    /// Ejecuta una etapa del DevFlow: invoca al agente, persiste artifact y avanza el run.
+    /// </summary>
+    /// <param name="runId">ID del run.</param>
+    /// <param name="request">Input y etapa opcional.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    /// <returns>Resultado con Response (200) o ErrorMessage y HttpStatusCode (404, 409, 400).</returns>
+    Task<ExecuteStageResult> ExecuteStageAsync(int runId, ExecuteStageRequest request, CancellationToken cancellationToken = default);
 }

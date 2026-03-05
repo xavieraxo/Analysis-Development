@@ -8,10 +8,14 @@ namespace Gateway.Api.Services;
 public class DevFlowService : IDevFlowService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IDevFlowAgentDispatcher _dispatcher;
+    private readonly IDevFlowPipeline _pipeline;
 
-    public DevFlowService(ApplicationDbContext context)
+    public DevFlowService(ApplicationDbContext context, IDevFlowAgentDispatcher dispatcher, IDevFlowPipeline pipeline)
     {
         _context = context;
+        _dispatcher = dispatcher;
+        _pipeline = pipeline;
     }
 
     public async Task<DevFlowRunResponse?> CreateRunAsync(CreateDevFlowRunRequest request, int createdByUserId)
@@ -104,6 +108,104 @@ public class DevFlowService : IDevFlowService
             PageSize = query.PageSize,
             Total = total
         };
+    }
+
+    public async Task<ExecuteStageResult> ExecuteStageAsync(int runId, ExecuteStageRequest request, CancellationToken cancellationToken = default)
+    {
+        var run = await _context.DevFlowRuns
+            .Include(r => r.Artifacts)
+            .Include(r => r.Gates)
+            .FirstOrDefaultAsync(r => r.Id == runId, cancellationToken);
+
+        if (run == null)
+            return ExecuteStageResult.NotFound("El run no existe.");
+
+        if (run.Status == DevFlowRunStatus.Completed || run.Status == DevFlowRunStatus.Cancelled)
+            return ExecuteStageResult.BadRequest($"El run está en estado {run.Status} y no puede ejecutar más etapas.");
+
+        var stage = request.OverrideStage ?? run.CurrentStage ?? _pipeline.GetInitialStage();
+
+        if (!Enum.IsDefined(typeof(DevFlowStage), stage))
+            return ExecuteStageResult.BadRequest("Etapa inválida.");
+
+        var previousStage = _pipeline.GetPreviousStage(stage);
+        if (previousStage.HasValue)
+        {
+            var blockingGate = run.Gates.FirstOrDefault(g => g.Stage == previousStage.Value);
+            if (blockingGate != null && blockingGate.Status == DevFlowGateStatus.Pending)
+                return ExecuteStageResult.Conflict($"El gate para la etapa {previousStage.Value} está pendiente de aprobación. Debe aprobar antes de ejecutar {stage}.");
+        }
+
+        var userMessage = !string.IsNullOrWhiteSpace(request.InputText)
+            ? request.InputText!.Trim()
+            : $"{run.Title}\n\n{run.Description}".Trim();
+
+        var previousArtifacts = run.Artifacts
+            .Where(a => (int)a.Stage < (int)stage)
+            .OrderBy(a => a.Stage)
+            .ThenBy(a => a.CreatedAt);
+        var previousSummary = string.Join("\n\n", previousArtifacts.Select(a => $"[{a.Stage}] {a.PayloadJson}"));
+
+        var agentInput = new DevFlowAgentInput
+        {
+            RunId = run.Id,
+            ProjectId = run.ProjectId,
+            ConversationId = $"devflow-{run.Id}",
+            UserMessage = userMessage,
+            PreviousArtifactsSummary = previousSummary
+        };
+
+        var result = await _dispatcher.ExecuteAsync(stage, agentInput, cancellationToken);
+
+        var artifact = new DevFlowArtifact
+        {
+            DevFlowRunId = run.Id,
+            Stage = stage,
+            AgentRole = result.AgentRole,
+            PayloadJson = result.PayloadJson,
+            Version = result.Version,
+            CreatedAt = DateTime.UtcNow
+        };
+        run.Artifacts.Add(artifact);
+
+        var nextStage = _pipeline.GetNextStage(stage);
+        if (nextStage.HasValue)
+        {
+            run.CurrentStage = nextStage.Value;
+            run.Status = DevFlowRunStatus.InProgress;
+            var gate = new DevFlowGate
+            {
+                DevFlowRunId = run.Id,
+                Stage = stage,
+                Status = DevFlowGateStatus.Pending,
+                CreatedAt = DateTime.UtcNow
+            };
+            run.Gates.Add(gate);
+        }
+        else
+        {
+            run.CurrentStage = stage;
+            run.Status = DevFlowRunStatus.Completed;
+        }
+
+        run.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var runDetail = MapToDetailResponse(run);
+        var artifactDto = new ExecuteStageArtifactDto
+        {
+            Id = artifact.Id,
+            Stage = artifact.Stage,
+            AgentRole = artifact.AgentRole,
+            Version = artifact.Version,
+            CreatedAt = artifact.CreatedAt
+        };
+
+        return ExecuteStageResult.Success(new ExecuteStageResponse
+        {
+            Run = runDetail,
+            Artifact = artifactDto
+        });
     }
 
     private static DevFlowRunResponse MapToResponse(DevFlowRun run) => new()
