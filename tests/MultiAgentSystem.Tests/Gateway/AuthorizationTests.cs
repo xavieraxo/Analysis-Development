@@ -1,6 +1,7 @@
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
+using Shared.Abstractions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
