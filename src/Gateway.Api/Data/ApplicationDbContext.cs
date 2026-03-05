@@ -34,6 +34,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<PasswordRecoveryToken> PasswordRecoveryTokens { get; set; }
     public DbSet<DevFlowRun> DevFlowRuns { get; set; }
     public DbSet<DevFlowArtifact> DevFlowArtifacts { get; set; }
+    public DbSet<DevFlowGate> DevFlowGates { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -150,6 +151,25 @@ public class ApplicationDbContext : IdentityDbContext<
                   .WithMany(r => r.Artifacts)
                   .HasForeignKey(e => e.DevFlowRunId)
                   .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.DevFlowRunId);
+            entity.HasIndex(e => new { e.DevFlowRunId, e.Stage });
+        });
+
+        modelBuilder.Entity<DevFlowGate>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Stage).IsRequired();
+            entity.Property(e => e.Status).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.DecisionComment).HasMaxLength(1000);
+            entity.HasOne(e => e.DevFlowRun)
+                  .WithMany(r => r.Gates)
+                  .HasForeignKey(e => e.DevFlowRunId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.DecidedByUser)
+                  .WithMany()
+                  .HasForeignKey(e => e.DecidedByUserId)
+                  .OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => e.DevFlowRunId);
             entity.HasIndex(e => new { e.DevFlowRunId, e.Stage });
         });
