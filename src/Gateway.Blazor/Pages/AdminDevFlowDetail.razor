@@ -47,8 +47,12 @@
                 <MudAlert Severity="Severity.Warning" Dense="true">@_executeError</MudAlert>
             }
 
-            <!-- Run info -->
-            <MudPaper Class="pa-4" Elevation="1">
+            <!-- Tabs -->
+            <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" @bind-ActivePanelIndex="_activeTab">
+                <MudTabPanel Text="General" Icon="@Icons.Material.Filled.Info">
+                    <MudStack Spacing="4" Class="pa-4">
+                        <!-- Run info -->
+                        <MudPaper Class="pa-4" Elevation="1">
                 <MudStack Spacing="2">
                     <MudText Typo="Typo.h6">Información del Run</MudText>
                     <MudSimpleTable Dense="true">
@@ -83,7 +87,7 @@
                 </MudStack>
             </MudPaper>
 
-            <!-- Acciones: Execute stage -->
+                        <!-- Acciones: Execute stage -->
             @if (_run.Status != DevFlowRunStatus.Completed && _run.Status != DevFlowRunStatus.Cancelled && _run.CurrentStage.HasValue)
             {
                 <MudPaper Class="pa-4" Elevation="1">
@@ -98,37 +102,8 @@
                 </MudPaper>
             }
 
-            <!-- Gates por etapa -->
-            <MudPaper Class="pa-4" Elevation="1">
-                <MudText Typo="Typo.h6" GutterBottom="true">Gates</MudText>
-                @foreach (var stage in AllStages)
-                {
-                    var gate = _run.Gates.FirstOrDefault(g => g.Stage == stage);
-                    var canApproveReject = gate == null || gate.Status == DevFlowGateStatus.Pending;
-                    <MudDivider Class="my-2" />
-                    <MudStack Spacing="2" Class="my-2">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Wrap="Wrap.Wrap">
-                            <MudText><strong>@GetStageLabel(stage)</strong> – @(gate != null ? GetGateStatusLabel(gate.Status) : "Sin gate")</MudText>
-                            @if (canApproveReject && _run.Status != DevFlowRunStatus.Completed && _run.Status != DevFlowRunStatus.Cancelled)
-                            {
-                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
-                                    <MudTextField @bind-Value="@_gateComments[stage]" Label="Comentario" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 200px;" />
-                                    <MudButton Size="Size.Small" Color="Color.Success" StartIcon="@Icons.Material.Filled.Check" OnClick="@(() => ApproveGate(stage, true))" Disabled="_actionInProgress">Aprobar</MudButton>
-                                    <MudButton Size="Size.Small" Color="Color.Error" StartIcon="@Icons.Material.Filled.Close" OnClick="@(() => ApproveGate(stage, false))" Disabled="_actionInProgress">Rechazar</MudButton>
-                                </MudStack>
-                            }
-                            else if (gate != null && !string.IsNullOrEmpty(gate.DecisionComment))
-                            {
-                                <MudText Typo="Typo.caption">@gate.DecisionComment</MudText>
-                            }
-                        </MudStack>
-                    </MudStack>
-                }
-            </MudPaper>
-
-            <!-- Artifacts por etapa -->
-            <MudPaper Class="pa-4" Elevation="1">
-                <MudText Typo="Typo.h6" GutterBottom="true">Artifacts</MudText>
+                                    <MudPaper Class="pa-4" Elevation="1">
+                            <MudText Typo="Typo.h6" GutterBottom="true">Artifacts</MudText>
                 @if (_run.Artifacts.Any())
                 {
                     <MudTable Items="@_run.Artifacts.OrderBy(a => a.Stage).ThenBy(a => a.CreatedAt)" Dense="true" Hover="true">
@@ -150,72 +125,66 @@
                 {
                     <MudText Typo="Typo.body2">Sin artifacts todavía.</MudText>
                 }
-            </MudPaper>
-
-            <!-- Branch Plan -->
-            <MudPaper Class="pa-4" Elevation="1">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
-                    <MudText Typo="Typo.h6">Branch Plan</MudText>
-                    <MudStack Row="true" Spacing="1">
-                        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Refresh"
-                                   OnClick="LoadBranchPlan" Disabled="_branchPlanLoading">
-                            Cargar
-                        </MudButton>
-                        @if (_branchPlan != null)
-                        {
-                            <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ContentCopy"
-                                       OnClick="ShowCopyJsonDialog" Disabled="_branchPlanLoading">
-                                Copy JSON
-                            </MudButton>
-                            <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.ContentCopy"
-                                       OnClick="ShowCopyMarkdownDialog" Disabled="_branchPlanLoading">
-                                Copy MD
-                            </MudButton>
-                        }
+                                    </MudPaper>
                     </MudStack>
-                </MudStack>
-                @if (_branchPlanNotFound)
-                {
-                    <MudAlert Severity="Severity.Info">Branch plan no existe para este run.</MudAlert>
-                }
-                else if (_branchPlanLoading)
-                {
-                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="my-2" />
-                }
-                else if (_branchPlan != null && _branchPlan.Items.Any())
-                {
-                    <MudTable Items="@_branchPlan.Items.OrderBy(i => i.Order)" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
-                        <HeaderContent>
-                            <MudTh>Order</MudTh>
-                            <MudTh>Story</MudTh>
-                            <MudTh>Task</MudTh>
-                            <MudTh>Branch</MudTh>
-                            <MudTh>Title</MudTh>
-                            <MudTh>Area</MudTh>
-                            <MudTh></MudTh>
-                        </HeaderContent>
-                        <RowTemplate>
-                            <MudTd DataLabel="Order">@context.Order</MudTd>
-                            <MudTd DataLabel="Story">@context.StoryId</MudTd>
-                            <MudTd DataLabel="Task">@context.TaskId</MudTd>
-                            <MudTd DataLabel="Branch">@context.BranchName</MudTd>
-                            <MudTd DataLabel="Title">@context.Title</MudTd>
-                            <MudTd DataLabel="Area">@context.Area</MudTd>
-                            <MudTd DataLabel="">
-                                @if (!string.IsNullOrWhiteSpace(context.Description))
-                                {
-                                    <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ExpandMore"
-                                               OnClick="@(() => ShowDescriptionDrawer(context))">Ver</MudButton>
-                                }
-                            </MudTd>
-                        </RowTemplate>
-                    </MudTable>
-                }
-                else if (_branchPlan != null)
-                {
-                    <MudText Typo="Typo.body2">Branch plan vacío.</MudText>
-                }
-            </MudPaper>
+                </MudTabPanel>
+
+                <MudTabPanel Text="Approvals" Icon="@Icons.Material.Filled.CheckCircle">
+                    <MudStack Spacing="4" Class="pa-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.h6">Gates por etapa</MudText>
+                            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadRun" Disabled="_isLoading">
+                                Refrescar estado
+                            </MudButton>
+                        </MudStack>
+                        @if (_run.Status == DevFlowRunStatus.Completed || _run.Status == DevFlowRunStatus.Cancelled)
+                        {
+                            <MudAlert Severity="Severity.Info">El run está @(GetStatusLabel(_run.Status)). No se pueden aprobar ni rechazar gates.</MudAlert>
+                        }
+                        <MudGrid>
+                            @foreach (var stage in AllStages)
+                            {
+                                var gate = _run.Gates.FirstOrDefault(g => g.Stage == stage);
+                                var canApproveReject = (gate == null || gate.Status == DevFlowGateStatus.Pending) && _run.Status != DevFlowRunStatus.Completed && _run.Status != DevFlowRunStatus.Cancelled;
+                                <MudItem xs="12" md="6">
+                                    <MudCard Elevation="2" Class="ma-2" Outlined="true">
+                                        <MudCardHeader>
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                                <MudText Typo="Typo.h6">@GetStageLabel(stage)</MudText>
+                                                <MudChip T="string" Size="Size.Small"
+                                                         Color="@(gate?.Status == DevFlowGateStatus.Approved ? Color.Success : gate?.Status == DevFlowGateStatus.Rejected ? Color.Error : Color.Warning)"
+                                                         Variant="Variant.Filled">
+                                                    @(gate != null ? GetGateStatusLabel(gate.Status) : "No gate yet")
+                                                </MudChip>
+                                            </MudStack>
+                                        </MudCardHeader>
+                                        <MudCardContent>
+                                            @if (gate != null && gate.DecidedAt.HasValue)
+                                            {
+                                                <MudText Typo="Typo.caption">Decidido: @gate.DecidedAt.Value.ToString("yyyy-MM-dd HH:mm")</MudText>
+                                            }
+                                            @if (gate != null && !string.IsNullOrEmpty(gate.DecisionComment))
+                                            {
+                                                <MudText Typo="Typo.body2" Class="mt-1">@gate.DecisionComment</MudText>
+                                            }
+                                            @if (canApproveReject)
+                                            {
+                                                <MudStack Spacing="2" Class="mt-2">
+                                                    <MudTextField @bind-Value="@_gateComments[stage]" Label="Comentario (opcional)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                                    <MudStack Row="true" Spacing="1">
+                                                        <MudButton Color="Color.Success" StartIcon="@Icons.Material.Filled.Check" OnClick="@(() => ApproveGate(stage, true))" Disabled="_actionInProgress">Aprobar</MudButton>
+                                                        <MudButton Color="Color.Error" StartIcon="@Icons.Material.Filled.Close" OnClick="@(() => ApproveGate(stage, false))" Disabled="_actionInProgress">Rechazar</MudButton>
+                                                    </MudStack>
+                                                </MudStack>
+                                            }
+                                        </MudCardContent>
+                                    </MudCard>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudStack>
+                </MudTabPanel>
+            </MudTabs>
         </MudStack>
     }
     else if (_isLoading)
@@ -237,9 +206,7 @@
     private DevFlowRunDetailResponse? _run;
     private string _executeInputText = string.Empty;
     private Dictionary<DevFlowStage, string> _gateComments = new();
-    private BranchPlanExportDto? _branchPlan;
-    private bool _branchPlanLoading;
-    private bool _branchPlanNotFound;
+    private int _activeTab;
 
     private static readonly DevFlowStage[] AllStages = { DevFlowStage.UR, DevFlowStage.PM, DevFlowStage.PO, DevFlowStage.DEV };
 
