@@ -25,8 +25,32 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Shared.Knowledge;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Comando para corregir historial de migraciones (ej: dotnet run -- --fix-migration-history)
+if (args.Contains("--fix-migration-history"))
+{
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Host=localhost;Port=5433;Database=multiagent;Username=appuser;Password=appsecret";
+    const string sql = """
+        INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+        VALUES 
+          ('20260114160210_InitialPostgres', '9.0.0'),
+          ('20260305011351_AddDevFlowRun', '9.0.0'),
+          ('20260305011954_AddDevFlowArtifact', '9.0.0'),
+          ('20260305123528_AddDevFlowGate', '9.0.0'),
+          ('20260305201719_AddBranchPlanModels', '9.0.0')
+        ON CONFLICT ("MigrationId") DO NOTHING;
+        """;
+    await using var conn = new NpgsqlConnection(connStr);
+    await conn.OpenAsync();
+    await using var cmd = new NpgsqlCommand(sql, conn);
+    await cmd.ExecuteNonQueryAsync();
+    Console.WriteLine("Historial de migraciones actualizado correctamente.");
+    Environment.Exit(0);
+}
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
