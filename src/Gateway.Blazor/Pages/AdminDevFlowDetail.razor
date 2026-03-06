@@ -207,6 +207,9 @@
     private string _executeInputText = string.Empty;
     private Dictionary<DevFlowStage, string> _gateComments = new();
     private int _activeTab;
+    private BranchPlanExportDto? _branchPlan;
+    private bool _branchPlanLoading;
+    private bool _branchPlanNotFound;
 
     private static readonly DevFlowStage[] AllStages = { DevFlowStage.UR, DevFlowStage.PM, DevFlowStage.PO, DevFlowStage.DEV };
 
