@@ -184,6 +184,67 @@
                         </MudGrid>
                     </MudStack>
                 </MudTabPanel>
+
+                <MudTabPanel Text="Branch Plan" Icon="@Icons.Material.Filled.AccountTree">
+                    <MudStack Spacing="4" Class="pa-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudText Typo="Typo.h6">Branch Plan</MudText>
+                            <MudStack Row="true" Spacing="1">
+                                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadBranchPlan" Disabled="_branchPlanLoading">
+                                    Cargar
+                                </MudButton>
+                                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Code" OnClick="ShowCopyJsonDialog" Disabled="_branchPlanLoading || _branchPlan == null">
+                                    Copiar JSON
+                                </MudButton>
+                                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Description" OnClick="ShowCopyMarkdownDialog" Disabled="_branchPlanLoading">
+                                    Copiar Markdown
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+                        @if (_branchPlanLoading)
+                        {
+                            <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+                        }
+                        else if (_branchPlanNotFound)
+                        {
+                            <MudAlert Severity="Severity.Info">Branch plan no disponible para este run.</MudAlert>
+                        }
+                        else if (_branchPlan != null && _branchPlan.Items.Any())
+                        {
+                            <MudTable Items="_branchPlan.Items" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm">
+                                <HeaderContent>
+                                    <MudTh>Order</MudTh>
+                                    <MudTh>TaskId</MudTh>
+                                    <MudTh>Área</MudTh>
+                                    <MudTh>Rama</MudTh>
+                                    <MudTh>Título</MudTh>
+                                    <MudTh Style="width:100px">Acciones</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd DataLabel="Order">@context.Order</MudTd>
+                                    <MudTd DataLabel="TaskId">@context.TaskId</MudTd>
+                                    <MudTd DataLabel="Área">@context.Area</MudTd>
+                                    <MudTd DataLabel="Rama">@context.BranchName</MudTd>
+                                    <MudTd DataLabel="Título">@context.Title</MudTd>
+                                    <MudTd DataLabel="Acciones">
+                                        @if (!string.IsNullOrEmpty(context.Description))
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Info" Size="Size.Small" OnClick="@(() => ShowDescriptionDrawer(context))" />
+                                        }
+                                    </MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        }
+                        else if (_branchPlan != null)
+                        {
+                            <MudAlert Severity="Severity.Info">El branch plan no tiene ítems.</MudAlert>
+                        }
+                        else
+                        {
+                            <MudAlert Severity="Severity.Info">Haz clic en "Cargar" para obtener el Branch Plan.</MudAlert>
+                        }
+                    </MudStack>
+                </MudTabPanel>
             </MudTabs>
         </MudStack>
     }

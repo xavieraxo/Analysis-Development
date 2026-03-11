@@ -35,7 +35,7 @@ public interface IDevFlowApiService
     /// <summary>
     /// Obtiene el Branch Plan en JSON.
     /// </summary>
-    Task<BranchPlanExportDto?> GetBranchPlanJsonAsync(int runId, CancellationToken ct = default);
+    Task<global::Gateway.Blazor.Models.BranchPlanExportDto?> GetBranchPlanJsonAsync(int runId, CancellationToken ct = default);
 
     /// <summary>
     /// Obtiene el Branch Plan en Markdown.
