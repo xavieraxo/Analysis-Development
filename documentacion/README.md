@@ -14,6 +14,7 @@
 | [GUIA_COMPLETA_DEBUGGING.md](GUIA_COMPLETA_DEBUGGING.md) | Guía completa de debugging |
 | [POSIBLES_CAUSAS_LENTITUD.md](POSIBLES_CAUSAS_LENTITUD.md) | Posibles causas de lentitud del sistema |
 | [QUE_RECIBE_EL_USUARIO.md](QUE_RECIBE_EL_USUARIO.md) | Qué recibe el usuario al interactuar con el sistema |
+| [SECURITY.md](SECURITY.md) | Regla definitiva de seguridad, DevFlowScope y checklist de PR para auto-modificación |
 
 ## AutoDev MVP
 
