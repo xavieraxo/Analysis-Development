@@ -271,7 +271,15 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 }
 
 builder.Services.AddScoped<IProjectService, ProjectService>();
-builder.Services.AddScoped<IAgentLoggingService, AgentLoggingService>();
+builder.Services.AddScoped<IAgentLoggingService>(sp =>
+{
+    var db = sp.GetRequiredService<ApplicationDbContext>();
+    var logger = sp.GetRequiredService<ILogger<AgentLoggingService>>();
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+
+    // Por defecto, logging con escritura en disco (para flujos internos / admin)
+    return new AgentLoggingService(db, logger, env, skipFileWrite: false);
+});
 builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
 builder.Services.AddScoped<IUserMigrationService, UserMigrationService>();
 builder.Services.AddScoped<BehaviorService>();
@@ -562,15 +570,18 @@ app.MapPost("/api/chat/run", [Authorize] async (
     CancellationToken ct) =>
 {
     var userId = await GetLegacyUserIdAsync(context.User, context.RequestServices);
-    
-    // Si hay projectId, validar que pertenece al usuario
-    if (projectId.HasValue)
+
+    // ProjectId obligatorio en este flujo
+    if (!projectId.HasValue)
     {
-        var project = await projectService.GetProjectByIdAsync(projectId.Value, userId);
-        if (project == null)
-        {
-            return Results.NotFound(new { message = "Proyecto no encontrado" });
-        }
+        return Results.BadRequest(new { message = "projectId es obligatorio" });
+    }
+
+    // Si hay projectId, validar que pertenece al usuario
+    var project = await projectService.GetProjectByIdAsync(projectId.Value, userId);
+    if (project == null)
+    {
+        return Results.NotFound(new { message = "Proyecto no encontrado" });
     }
 
     // Verificar si hay una respuesta automática para este mensaje
@@ -591,8 +602,12 @@ app.MapPost("/api/chat/run", [Authorize] async (
     var flow = new[] { AgentRole.UR, AgentRole.PM, AgentRole.PO, AgentRole.UX, AgentRole.Dev, AgentRole.PM };
     var response = await orch.RunWithSummaryAsync(input.ConversationId, input, flow, ct);
 
-    // Guardar análisis en proyecto si hay projectId
-    if (projectId.HasValue)
+    // Opción B endurecida:
+    // - Si el usuario NO es SuperUsuario: modo exploratorio (sin persistencia ni escritura en disco).
+    // - Si es SuperUsuario: se mantiene el comportamiento actual.
+    var isSuperUser = context.User.IsInRole(AuthorizationRoles.SuperUsuario);
+
+    if (isSuperUser)
     {
         var internalConversationsJson = JsonSerializer.Serialize(response.InternalConversations);
         await projectService.SaveProjectAnalysisAsync(

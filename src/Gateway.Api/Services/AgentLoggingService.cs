@@ -16,14 +16,17 @@ public class AgentLoggingService : IAgentLoggingService
     private readonly Data.ApplicationDbContext _context;
     private readonly ILogger<AgentLoggingService> _logger;
     private readonly string _logsDirectory;
+    private readonly bool _skipFileWrite;
 
     public AgentLoggingService(
         Data.ApplicationDbContext context,
         ILogger<AgentLoggingService> logger,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        bool skipFileWrite = false)
     {
         _context = context;
         _logger = logger;
+        _skipFileWrite = skipFileWrite;
         _logsDirectory = Path.Combine(environment.ContentRootPath, "logs", "conversations");
         Directory.CreateDirectory(_logsDirectory);
     }
@@ -47,8 +50,11 @@ public class AgentLoggingService : IAgentLoggingService
             conversationId,
             message);
 
-        // 2. Guardar en archivo JSON
-        SaveToFile(conversationId, logEntry);
+        // 2. Guardar en archivo JSON (si está habilitado)
+        if (!_skipFileWrite)
+        {
+            SaveToFile(conversationId, logEntry);
+        }
 
         // 3. Guardar en base de datos (si hay proyecto asociado)
         _ = Task.Run(async () =>
