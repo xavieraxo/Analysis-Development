@@ -20,10 +20,16 @@ builder.Services.AddServerSideBlazor(options =>
 // MudBlazor
 builder.Services.AddMudServices();
 
-// HttpClient para API
-builder.Services.AddScoped(sp => new HttpClient 
-{ 
-    BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:8096") 
+// HttpClient para API (timeout largo para /api/chat/run y DevFlow, que pueden tardar con el LLM)
+var apiTimeoutMinutes = builder.Configuration.GetValue<int>("ApiTimeoutMinutes", 15);
+builder.Services.AddScoped(sp =>
+{
+    var client = new HttpClient
+    {
+        BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:8096"),
+        Timeout = TimeSpan.FromMinutes(apiTimeoutMinutes)
+    };
+    return client;
 });
 
 // Servicios personalizados

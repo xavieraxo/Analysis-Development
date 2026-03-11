@@ -34,9 +34,11 @@ public sealed class OpenAiClient : ILlmClient
         {
             resp = await _http.PostAsJsonAsync(reqUri, payload, ct);
         }
-        catch (TaskCanceledException) when (ct.IsCancellationRequested)
+        catch (TaskCanceledException ex) when (ct.IsCancellationRequested)
         {
-            throw new OperationCanceledException(ct);
+            throw new HttpRequestException(
+                "La solicitud fue cancelada (el cliente cerró la conexión o hubo timeout). Puede reintentar cuando el modelo esté listo.",
+                ex);
         }
         catch (TaskCanceledException ex)
         {
@@ -45,9 +47,11 @@ public sealed class OpenAiClient : ILlmClient
                 "Aumente OpenAI:TimeoutSeconds en configuración o use un modelo más ligero (ej. llama3.2 en lugar de uno mayor).",
                 ex);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
-            throw;
+            throw new HttpRequestException(
+                "La solicitud fue cancelada (el cliente cerró la conexión o hubo timeout). Puede reintentar cuando el modelo esté listo.",
+                ex);
         }
         using (resp)
         {
