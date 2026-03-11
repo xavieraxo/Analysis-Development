@@ -900,10 +900,10 @@ app.MapGet("/api/devflow/runs/{id}/branch-plan", [Authorize(Policy = Authorizati
 .Produces(StatusCodes.Status404NotFound);
 
 // ========== ENDPOINTS ADMIN INTERNO ==========
-// Solo SuperUsuario puede acceder a administración interna
+// SuperUsuario y AppAdmin pueden acceder a administración funcional de proyectos
 
 // Listar todos los proyectos
-app.MapGet("/api/admin/projects", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (IProjectService projectService) =>
+app.MapGet("/api/admin/projects", [Authorize(Policy = AuthorizationRoles.AppAdminOrSuperUserPolicy)] async (IProjectService projectService) =>
 {
     var projects = await projectService.GetAllProjectsAsync();
     return Results.Ok(projects);
@@ -911,7 +911,7 @@ app.MapGet("/api/admin/projects", [Authorize(Policy = AuthorizationRoles.SuperUs
 .WithName("GetAllProjects")
 .Produces<List<ProjectDto>>(StatusCodes.Status200OK);
 
-// Obtener logs de una conversación
+// Obtener logs de una conversación (solo SuperUsuario)
 app.MapGet("/api/admin/logs/{conversationId}", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (string conversationId, IAgentLoggingService loggingService) =>
 {
     var logs = await loggingService.GetConversationLogsAsync(conversationId);
@@ -920,7 +920,7 @@ app.MapGet("/api/admin/logs/{conversationId}", [Authorize(Policy = Authorization
 .WithName("GetConversationLogs")
 .Produces<List<AgentLogEntry>>(StatusCodes.Status200OK);
 
-// Obtener todos los logs
+// Obtener todos los logs (solo SuperUsuario)
 app.MapGet("/api/admin/logs", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (IAgentLoggingService loggingService, int? limit) =>
 {
     var logs = await loggingService.GetAllLogsAsync(limit);
@@ -929,7 +929,7 @@ app.MapGet("/api/admin/logs", [Authorize(Policy = AuthorizationRoles.SuperUserOn
 .WithName("GetAllLogs")
 .Produces<List<AgentLogEntry>>(StatusCodes.Status200OK);
 
-// Migrar usuarios a Identity - Endpoint temporal para migración
+// Migrar usuarios a Identity - Endpoint temporal para migración (solo SuperUsuario)
 app.MapPost("/api/admin/migrate-users", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (IUserMigrationService migrationService) =>
 {
     var result = await migrationService.MigrateUsersToIdentityAsync();
@@ -941,7 +941,7 @@ app.MapPost("/api/admin/migrate-users", [Authorize(Policy = AuthorizationRoles.S
 // ========== ENDPOINTS USUARIOS ADMIN ==========
 
 // Listar todos los usuarios
-app.MapGet("/api/admin/users", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (IAuthService authService) =>
+app.MapGet("/api/admin/users", [Authorize(Policy = AuthorizationRoles.AppAdminOrSuperUserPolicy)] async (IAuthService authService) =>
 {
     var users = await authService.GetAllUsersAsync();
     return Results.Ok(users);
@@ -949,8 +949,8 @@ app.MapGet("/api/admin/users", [Authorize(Policy = AuthorizationRoles.SuperUserO
 .WithName("GetAllUsers")
 .Produces<List<UserDto>>(StatusCodes.Status200OK);
 
-// Crear usuario (solo SuperUsuario)
-app.MapPost("/api/admin/users", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (HttpContext context, IAuthService authService, CreateUserRequest request, ILogger<Program> logger) =>
+// Crear usuario (AppAdmin o SuperUsuario)
+app.MapPost("/api/admin/users", [Authorize(Policy = AuthorizationRoles.AppAdminOrSuperUserPolicy)] async (HttpContext context, IAuthService authService, CreateUserRequest request, ILogger<Program> logger) =>
 {
     var userIdClaim = context.User.FindFirstValue(ClaimTypes.NameIdentifier);
     if (string.IsNullOrEmpty(userIdClaim))
@@ -977,8 +977,8 @@ app.MapPost("/api/admin/users", [Authorize(Policy = AuthorizationRoles.SuperUser
 .Produces(StatusCodes.Status400BadRequest)
 .Produces(StatusCodes.Status403Forbidden);
 
-// Actualizar estado de usuario
-app.MapPut("/api/admin/users/{id}/status", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (int id, IAuthService authService, bool isActive) =>
+// Actualizar estado de usuario (AppAdmin o SuperUsuario)
+app.MapPut("/api/admin/users/{id}/status", [Authorize(Policy = AuthorizationRoles.AppAdminOrSuperUserPolicy)] async (int id, IAuthService authService, bool isActive) =>
 {
     var result = await authService.UpdateUserStatusAsync(id, isActive);
     if (!result)
