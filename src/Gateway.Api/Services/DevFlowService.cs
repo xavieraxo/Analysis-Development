@@ -20,16 +20,9 @@ public class DevFlowService : IDevFlowService
 
     public async Task<DevFlowRunResponse?> CreateRunAsync(CreateDevFlowRunRequest request, int createdByUserId)
     {
-        if (request.ProjectId.HasValue)
-        {
-            var projectExists = await _context.Projects.AnyAsync(p => p.Id == request.ProjectId.Value);
-            if (!projectExists)
-                return null;
-        }
-
         var run = new DevFlowRun
         {
-            ProjectId = request.ProjectId,
+            ProjectId = request.ProjectId ?? throw new InvalidOperationException("ProjectId is required to create a DevFlow run."),
             Title = request.Title.Trim(),
             Description = request.Description?.Trim() ?? string.Empty,
             Status = DevFlowRunStatus.Created,
