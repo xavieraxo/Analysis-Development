@@ -39,8 +39,8 @@ public enum DevFlowGateStatus
 public class DevFlowRun
 {
     public int Id { get; set; }
-    public int? ProjectId { get; set; }
-    public Project? Project { get; set; }
+    public int ProjectId { get; set; }
+    public Project Project { get; set; } = null!;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public DevFlowRunStatus Status { get; set; } = DevFlowRunStatus.Created;
@@ -50,7 +50,17 @@ public class DevFlowRun
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    public DevFlowScope Scope { get; set; } = DevFlowScope.UserProject;
+    public bool IsMigrated { get; set; }
+
     public List<DevFlowArtifact> Artifacts { get; set; } = new();
     public List<DevFlowGate> Gates { get; set; } = new();
     public BranchPlan? BranchPlan { get; set; }
 }
+
+public enum DevFlowScope
+{
+    UserProject = 0,
+    InternalSystem = 1
+}
+

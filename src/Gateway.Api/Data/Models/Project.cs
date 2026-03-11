@@ -1,5 +1,3 @@
-using Shared.Abstractions;
-
 namespace Data.Models;
 
 public class Project
@@ -26,6 +24,14 @@ public enum ProjectStatus
 {
     InProgress = 0,
     Completed = 1,
-    Cancelled = 2
+    Cancelled = 2,
+    OnHold = 3
 }
+
+public enum ProjectOwnerType
+{
+    Individual = 0,
+    Empresa = 1
+}
+
 

@@ -32,11 +32,16 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<SystemConfiguration> SystemConfigurations { get; set; }
     public DbSet<Behavior> Behaviors { get; set; }
     public DbSet<PasswordRecoveryToken> PasswordRecoveryTokens { get; set; }
+    public DbSet<Empresa> Empresas { get; set; }
+    public DbSet<EmpresaUser> EmpresaUsers { get; set; }
+    public DbSet<ProjectOperator> ProjectOperators { get; set; }
     public DbSet<DevFlowRun> DevFlowRuns { get; set; }
     public DbSet<DevFlowArtifact> DevFlowArtifacts { get; set; }
     public DbSet<DevFlowGate> DevFlowGates { get; set; }
     public DbSet<BranchPlan> BranchPlans { get; set; }
     public DbSet<BranchPlanItem> BranchPlanItems { get; set; }
+    public DbSet<GateAuditLog> GateAuditLogs { get; set; }
+    public DbSet<InternalDevFlowAuditLog> InternalDevFlowAuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -137,7 +142,7 @@ public class ApplicationDbContext : IdentityDbContext<
             entity.HasOne(e => e.Project)
                   .WithMany()
                   .HasForeignKey(e => e.ProjectId)
-                  .OnDelete(DeleteBehavior.SetNull);
+                  .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.CreatedByUserId);
             entity.HasIndex(e => e.ProjectId);
         });
@@ -211,6 +216,95 @@ public class ApplicationDbContext : IdentityDbContext<
             entity.HasIndex(e => e.BranchPlanId);
             entity.HasIndex(e => e.BranchName);
             entity.HasIndex(e => new { e.BranchPlanId, e.TaskId }).IsUnique();
+        });
+
+        modelBuilder.Entity<Empresa>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.IsActive).IsRequired();
+        });
+
+        modelBuilder.Entity<EmpresaUser>(entity =>
+        {
+            entity.HasKey(e => new { e.EmpresaId, e.UserId });
+
+            entity.HasOne(e => e.Empresa)
+                  .WithMany(e => e.EmpresaUsers)
+                  .HasForeignKey(e => e.EmpresaId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.User)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(e => e.RoleInEmpresa)
+                  .HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<ProjectOperator>(entity =>
+        {
+            entity.HasKey(e => new { e.ProjectId, e.UserId });
+
+            entity.HasOne(e => e.Project)
+                  .WithMany()
+                  .HasForeignKey(e => e.ProjectId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.User)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GateAuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(e => e.Gate)
+                  .WithMany()
+                  .HasForeignKey(e => e.GateId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.ActorUser)
+                  .WithMany()
+                  .HasForeignKey(e => e.ActorUserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(e => e.Action)
+                  .IsRequired()
+                  .HasMaxLength(100);
+
+            entity.Property(e => e.Timestamp)
+                  .IsRequired();
+
+            entity.Property(e => e.Comment)
+                  .HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<InternalDevFlowAuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(e => e.ActorUser)
+                  .WithMany()
+                  .HasForeignKey(e => e.ActorUserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(e => e.Action)
+                  .IsRequired()
+                  .HasMaxLength(100);
+
+            entity.Property(e => e.ResourceType)
+                  .IsRequired()
+                  .HasMaxLength(100);
+
+            entity.Property(e => e.Timestamp)
+                  .IsRequired();
+
+            entity.Property(e => e.Comment)
+                  .HasMaxLength(1000);
         });
     }
 }
