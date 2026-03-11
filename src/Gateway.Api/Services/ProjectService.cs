@@ -7,6 +7,7 @@ namespace Gateway.Api.Services;
 public interface IProjectService
 {
     Task<ProjectDto> CreateProjectAsync(int userId, string name, string description);
+    Task<ProjectWithDevFlowDto> CreateProjectWithInitialDevFlowRunAsync(CreateProjectRequest request, int currentUserId, CancellationToken cancellationToken = default);
     Task<List<ProjectDto>> GetUserProjectsAsync(int userId);
     Task<ProjectDto?> GetProjectByIdAsync(int projectId, int userId);
     Task<List<ProjectDto>> GetAllProjectsAsync(); // Solo Admin/SuperUsuario
@@ -39,6 +40,71 @@ public class ProjectService : IProjectService
         await _context.SaveChangesAsync();
 
         return MapToDto(project);
+    }
+
+    public async Task<ProjectWithDevFlowDto> CreateProjectWithInitialDevFlowRunAsync(
+        CreateProjectRequest request,
+        int currentUserId,
+        CancellationToken cancellationToken = default)
+    {
+        // Regla de licencia individual: un solo proyecto activo (InProgress u OnHold) por usuario.
+        var hasActiveProject = await _context.Projects
+            .AnyAsync(p =>
+                p.UserId == currentUserId &&
+                (p.Status == ProjectStatus.InProgress || p.Status == ProjectStatus.OnHold),
+                cancellationToken);
+
+        if (hasActiveProject)
+        {
+            throw new InvalidOperationException("El usuario ya tiene un proyecto activo.");
+        }
+
+        await using var tx = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+        var project = new Project
+        {
+            Name = request.Name,
+            Description = request.Description,
+            UserId = currentUserId,
+            Status = ProjectStatus.InProgress
+        };
+
+        _context.Projects.Add(project);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var run = new DevFlowRun
+        {
+            ProjectId = project.Id,
+            Title = request.Name,
+            Description = request.Description,
+            Status = DevFlowRunStatus.Created,
+            CurrentStage = DevFlowStage.UR,
+            CreatedByUserId = currentUserId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            Scope = DevFlowScope.UserProject,
+            IsMigrated = false
+        };
+
+        _context.DevFlowRuns.Add(run);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await tx.CommitAsync(cancellationToken);
+
+        var projectDto = MapToDto(project);
+        var runDto = new DevFlowRunResponse
+        {
+            Id = run.Id,
+            ProjectId = run.ProjectId,
+            Title = run.Title,
+            Description = run.Description,
+            Status = run.Status,
+            CurrentStage = run.CurrentStage,
+            CreatedAt = run.CreatedAt,
+            UpdatedAt = run.UpdatedAt
+        };
+
+        return new ProjectWithDevFlowDto(projectDto, runDto);
     }
 
     public async Task<List<ProjectDto>> GetUserProjectsAsync(int userId)
@@ -123,4 +189,9 @@ public record ProjectDto(
     DateTime? CompletedAt,
     string? ConversationId,
     string? Summary);
+
+public record ProjectWithDevFlowDto(
+    ProjectDto Project,
+    DevFlowRunResponse InitialRun);
+
 
