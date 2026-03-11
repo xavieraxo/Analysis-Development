@@ -3,6 +3,7 @@
 @inject IApiService ApiService
 @inject ISnackbar Snackbar
 @inject NavigationManager Navigation
+@inject IAuthService AuthService
 
 <PageTitle>Proyecto - Multi-Agent System</PageTitle>
 
@@ -30,6 +31,12 @@
             <MudDivider Class="my-4" />
 
             <MudText Typo="Typo.h6">Chat con los Agentes</MudText>
+            @if (!_isSuperUsuario)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Warning">
+                    Modo exploratorio: las respuestas no se guardan en el proyecto.
+                </MudText>
+            }
 
             <MudPaper Elevation="2" Class="pa-4" Style="height: 500px; overflow-y: auto;">
                 <MudStack Spacing="2" Class="chat-container">
@@ -86,10 +93,12 @@
     private string _messageText = string.Empty;
     private bool _isLoading = true;
     private bool _isSending = false;
+    private bool _isSuperUsuario = false;
     private string _conversationId = Guid.NewGuid().ToString();
 
     protected override async Task OnInitializedAsync()
     {
+        _isSuperUsuario = AuthService.GetUserRole() == "SuperUsuario";
         await LoadProject();
         await LoadConversation();
     }
