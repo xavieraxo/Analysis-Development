@@ -12,6 +12,7 @@ services:
       - ASPNETCORE_URLS=http://+:8080
       - OpenAI__BaseUrl=http://ollama:11434/v1
       - OpenAI__Model=llama3.2
+      - OpenAI__TimeoutSeconds=900
       - OpenAI__Key=
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=multiagent;Username=appuser;Password=appsecret
     depends_on:
