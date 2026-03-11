@@ -300,7 +300,8 @@ public class DevFlowService : IDevFlowService
         Status = run.Status,
         CurrentStage = run.CurrentStage,
         CreatedAt = run.CreatedAt,
-        UpdatedAt = run.UpdatedAt
+        UpdatedAt = run.UpdatedAt,
+        Scope = run.Scope
     };
 
     private static DevFlowRunDetailResponse MapToDetailResponse(DevFlowRun run) => new()
@@ -314,6 +315,7 @@ public class DevFlowService : IDevFlowService
         CreatedByUserId = run.CreatedByUserId,
         CreatedAt = run.CreatedAt,
         UpdatedAt = run.UpdatedAt,
+        Scope = run.Scope,
         Artifacts = run.Artifacts
             .OrderBy(a => a.Stage)
             .ThenBy(a => a.CreatedAt)

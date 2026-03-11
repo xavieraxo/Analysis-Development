@@ -15,4 +15,5 @@ public class DevFlowRunResponse
     public DevFlowStage? CurrentStage { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public DevFlowScope Scope { get; set; }
 }

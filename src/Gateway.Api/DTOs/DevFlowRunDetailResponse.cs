@@ -17,6 +17,7 @@ public class DevFlowRunDetailResponse
     public int CreatedByUserId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public DevFlowScope Scope { get; set; }
     public List<DevFlowArtifactSummaryDto> Artifacts { get; set; } = new();
     public List<DevFlowGateSummaryDto> Gates { get; set; } = new();
 }
