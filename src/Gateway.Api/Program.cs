@@ -129,10 +129,31 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin", "SuperUsuario"));
-    options.AddPolicy("AdminOrSuperUser", policy => policy.RequireRole("Admin", "SuperUsuario"));
+    // Compatibilidad: policy antigua (puede eliminarse cuando ya no se use)
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin", AuthorizationRoles.SuperUsuario));
+
+    // AppAdmin o SuperUsuario (gestión funcional, sin tocar configuración interna)
+    options.AddPolicy(
+        AuthorizationRoles.AppAdminOrSuperUserPolicy,
+        policy => policy.RequireRole(AuthorizationRoles.AppAdmin, AuthorizationRoles.SuperUsuario));
+
     // Solo SuperUsuario puede modificar configuraciones internas (behaviors, configurations, admin)
-    options.AddPolicy(AuthorizationRoles.SuperUserOnlyPolicy, policy => policy.RequireRole(AuthorizationRoles.SuperUsuario));
+    options.AddPolicy(
+        AuthorizationRoles.SuperUserOnlyPolicy,
+        policy => policy.RequireRole(AuthorizationRoles.SuperUsuario));
+
+    // Policies base para proyectos / DevFlow (handlers se implementarán en ramas siguientes)
+    options.AddPolicy(
+        AuthorizationRoles.CanAccessProjectPolicy,
+        policy => policy.RequireAssertion(_ => true)); // placeholder, se refinará con IProjectAccessService
+
+    options.AddPolicy(
+        AuthorizationRoles.CanExecuteDevFlowStagePolicy,
+        policy => policy.RequireAssertion(_ => true)); // placeholder
+
+    options.AddPolicy(
+        AuthorizationRoles.CanApproveGatePolicy,
+        policy => policy.RequireAssertion(_ => true)); // placeholder
 });
 
 // Configurar HttpClient para OpenAI
@@ -262,6 +283,7 @@ builder.Services.AddScoped<IDevFlowService, DevFlowService>();
 builder.Services.AddSingleton<IDevFlowPipeline, DevFlowPipeline>();
 builder.Services.AddScoped<IDevFlowAgentDispatcher, DevFlowAgentDispatcher>();
 builder.Services.AddSingleton<IBranchNameGenerator, DefaultBranchNameGenerator>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 
 // Registrar agentes
 builder.Services.AddScoped<IAgent, UrAgent>();
