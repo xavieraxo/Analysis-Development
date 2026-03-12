@@ -17,6 +17,7 @@
 | [SECURITY.md](SECURITY.md) | Regla definitiva de seguridad, DevFlowScope y checklist de PR para auto-modificación |
 | [DISENO_MODULO_DELIVERABLES.md](DISENO_MODULO_DELIVERABLES.md) | Diseño técnico del módulo Deliverables (entidades, servicios, reglas, UI, fases) |
 | [DISENO_MODULO_SUSCRIPCIONES.md](DISENO_MODULO_SUSCRIPCIONES.md) | Diseño técnico del módulo de suscripciones y visibilidad por plan (planes, límites, roles) |
+| [DISENO_VALIDACION_LIMITE_PROYECTOS_ACTIVOS.md](DISENO_VALIDACION_LIMITE_PROYECTOS_ACTIVOS.md) | Dónde y cómo validar el límite de proyectos activos por plan (servicio, endpoint, UI, error, reabrir, cambio de plan) |
 
 ## AutoDev MVP
 
