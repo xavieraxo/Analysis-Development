@@ -15,6 +15,8 @@
 | [POSIBLES_CAUSAS_LENTITUD.md](POSIBLES_CAUSAS_LENTITUD.md) | Posibles causas de lentitud del sistema |
 | [QUE_RECIBE_EL_USUARIO.md](QUE_RECIBE_EL_USUARIO.md) | Qué recibe el usuario al interactuar con el sistema |
 | [SECURITY.md](SECURITY.md) | Regla definitiva de seguridad, DevFlowScope y checklist de PR para auto-modificación |
+| [DISENO_MODULO_DELIVERABLES.md](DISENO_MODULO_DELIVERABLES.md) | Diseño técnico del módulo Deliverables (entidades, servicios, reglas, UI, fases) |
+| [DISENO_MODULO_SUSCRIPCIONES.md](DISENO_MODULO_SUSCRIPCIONES.md) | Diseño técnico del módulo de suscripciones y visibilidad por plan (planes, límites, roles) |
 
 ## AutoDev MVP
 
