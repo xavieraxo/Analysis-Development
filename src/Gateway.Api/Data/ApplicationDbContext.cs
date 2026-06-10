@@ -38,6 +38,7 @@ public class ApplicationDbContext : IdentityDbContext<
     public DbSet<DevFlowRun> DevFlowRuns { get; set; }
     public DbSet<DevFlowArtifact> DevFlowArtifacts { get; set; }
     public DbSet<DevFlowGate> DevFlowGates { get; set; }
+    public DbSet<DevFlowStageMessage> DevFlowStageMessages { get; set; }
     public DbSet<BranchPlan> BranchPlans { get; set; }
     public DbSet<BranchPlanItem> BranchPlanItems { get; set; }
     public DbSet<GateAuditLog> GateAuditLogs { get; set; }
@@ -161,6 +162,21 @@ public class ApplicationDbContext : IdentityDbContext<
                   .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.DevFlowRunId);
             entity.HasIndex(e => new { e.DevFlowRunId, e.Stage });
+        });
+
+        modelBuilder.Entity<DevFlowStageMessage>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Stage).IsRequired();
+            entity.Property(e => e.Sender).IsRequired();
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.HasOne(e => e.DevFlowRun)
+                  .WithMany(r => r.StageMessages)
+                  .HasForeignKey(e => e.DevFlowRunId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.DevFlowRunId);
+            entity.HasIndex(e => new { e.DevFlowRunId, e.Stage, e.CreatedAt });
         });
 
         modelBuilder.Entity<DevFlowGate>(entity =>

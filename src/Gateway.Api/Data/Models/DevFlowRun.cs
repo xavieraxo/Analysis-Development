@@ -69,6 +69,7 @@ public class DevFlowRun
 
     public List<DevFlowArtifact> Artifacts { get; set; } = new();
     public List<DevFlowGate> Gates { get; set; } = new();
+    public List<DevFlowStageMessage> StageMessages { get; set; } = new();
     public BranchPlan? BranchPlan { get; set; }
 }
 
