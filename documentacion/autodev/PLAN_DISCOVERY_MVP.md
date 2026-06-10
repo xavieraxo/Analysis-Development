@@ -94,6 +94,8 @@ feature/discovery-mvp/<slug-corto>
 3. Devolver `ProjectId` + `RunId`
 4. Tests: creación feliz, límite de proyecto activo, vínculo run-proyecto
 
+**Decisión tomada en la rama (10.1.1):** se agregó el endpoint dedicado `POST /api/projects/with-discovery` en lugar de modificar `POST /api/projects`. Motivos: (a) el endpoint actual responde `ProjectDto` plano y es consumido por `UserProjectsView.razor` y por `GatewayTestHelpers.CreateProjectAsync` de toda la suite DevFlow; (b) el límite de "un proyecto activo" rompería esos tests, que crean varios proyectos con el mismo usuario contra una BD persistente. La UI de usuario migrará a este endpoint en la tarea 13.1.1; el endpoint legado se evaluará para deprecación al cierre del Hito 13. Respuesta: `ProjectWithDevFlowDto { project, initialRun }` (409 si hay proyecto activo, 400 sin nombre).
+
 **Done:** Crear proyecto desde Swagger genera run Discovery consultable.
 
 ---
