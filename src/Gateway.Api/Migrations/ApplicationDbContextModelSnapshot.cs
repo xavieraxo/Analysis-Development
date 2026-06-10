@@ -350,6 +350,9 @@ namespace Gateway.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("FlowType")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsMigrated")
                         .HasColumnType("boolean");
 

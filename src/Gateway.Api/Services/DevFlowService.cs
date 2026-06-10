@@ -20,13 +20,21 @@ public class DevFlowService : IDevFlowService
 
     public async Task<DevFlowRunResponse?> CreateRunAsync(CreateDevFlowRunRequest request, int createdByUserId)
     {
+        if (!request.ProjectId.HasValue)
+            throw new InvalidOperationException("ProjectId is required to create a DevFlow run.");
+
+        var projectExists = await _context.Projects.AnyAsync(p => p.Id == request.ProjectId.Value);
+        if (!projectExists)
+            return null;
+
         var run = new DevFlowRun
         {
-            ProjectId = request.ProjectId ?? throw new InvalidOperationException("ProjectId is required to create a DevFlow run."),
+            ProjectId = request.ProjectId.Value,
             Title = request.Title.Trim(),
             Description = request.Description?.Trim() ?? string.Empty,
+            FlowType = request.FlowType,
             Status = DevFlowRunStatus.Created,
-            CurrentStage = DevFlowStage.UR,
+            CurrentStage = _pipeline.GetInitialStage(request.FlowType),
             CreatedByUserId = createdByUserId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -85,6 +93,7 @@ public class DevFlowService : IDevFlowService
                 Id = r.Id,
                 ProjectId = r.ProjectId,
                 Title = r.Title,
+                FlowType = r.FlowType,
                 Status = r.Status,
                 CurrentStage = r.CurrentStage,
                 CreatedAt = r.CreatedAt,
@@ -116,12 +125,19 @@ public class DevFlowService : IDevFlowService
         if (run.Status == DevFlowRunStatus.Completed || run.Status == DevFlowRunStatus.Cancelled)
             return ExecuteStageResult.BadRequest($"El run está en estado {run.Status} y no puede ejecutar más etapas.");
 
-        var stage = request.OverrideStage ?? run.CurrentStage ?? _pipeline.GetInitialStage();
+        var stage = request.OverrideStage ?? run.CurrentStage ?? _pipeline.GetInitialStage(run.FlowType);
 
         if (!Enum.IsDefined(typeof(DevFlowStage), stage))
             return ExecuteStageResult.BadRequest("Etapa inválida.");
 
-        var previousStage = _pipeline.GetPreviousStage(stage);
+        if (run.CurrentStage.HasValue && stage != run.CurrentStage.Value)
+            return ExecuteStageResult.BadRequest($"La etapa solicitada {stage} no coincide con la etapa actual del run ({run.CurrentStage.Value}).");
+
+        var flowStages = _pipeline.GetStages(run.FlowType);
+        if (!flowStages.Contains(stage))
+            return ExecuteStageResult.BadRequest($"La etapa {stage} no pertenece al flujo {run.FlowType}.");
+
+        var previousStage = _pipeline.GetPreviousStage(run.FlowType, stage);
         if (previousStage.HasValue)
         {
             var blockingGate = run.Gates.FirstOrDefault(g => g.Stage == previousStage.Value);
@@ -161,7 +177,7 @@ public class DevFlowService : IDevFlowService
         };
         run.Artifacts.Add(artifact);
 
-        var nextStage = _pipeline.GetNextStage(stage);
+        var nextStage = _pipeline.GetNextStage(run.FlowType, stage);
         if (nextStage.HasValue)
         {
             run.CurrentStage = nextStage.Value;
@@ -178,7 +194,9 @@ public class DevFlowService : IDevFlowService
         else
         {
             run.CurrentStage = stage;
-            run.Status = DevFlowRunStatus.Completed;
+            run.Status = run.FlowType == DevFlowType.Discovery
+                ? DevFlowRunStatus.PendingApproval
+                : DevFlowRunStatus.Completed;
         }
 
         run.UpdatedAt = DateTime.UtcNow;
@@ -190,6 +208,7 @@ public class DevFlowService : IDevFlowService
             Id = artifact.Id,
             Stage = artifact.Stage,
             AgentRole = artifact.AgentRole,
+            PayloadJson = artifact.PayloadJson,
             Version = artifact.Version,
             CreatedAt = artifact.CreatedAt
         };
@@ -297,6 +316,7 @@ public class DevFlowService : IDevFlowService
         ProjectId = run.ProjectId,
         Title = run.Title,
         Description = run.Description,
+        FlowType = run.FlowType,
         Status = run.Status,
         CurrentStage = run.CurrentStage,
         CreatedAt = run.CreatedAt,
@@ -310,6 +330,7 @@ public class DevFlowService : IDevFlowService
         ProjectId = run.ProjectId,
         Title = run.Title,
         Description = run.Description,
+        FlowType = run.FlowType,
         Status = run.Status,
         CurrentStage = run.CurrentStage,
         CreatedByUserId = run.CreatedByUserId,
@@ -324,6 +345,7 @@ public class DevFlowService : IDevFlowService
                 Id = a.Id,
                 Stage = a.Stage,
                 AgentRole = a.AgentRole,
+                PayloadJson = a.PayloadJson,
                 Version = a.Version,
                 CreatedAt = a.CreatedAt
             })

@@ -1,14 +1,26 @@
 namespace Gateway.Blazor.Models;
 
 /// <summary>
-/// Etapas del pipeline DevFlow (UR → PM → PO → DEV).
+/// Etapas del pipeline DevFlow.
 /// </summary>
 public enum DevFlowStage
 {
     UR = 0,
     PM = 1,
     PO = 2,
-    DEV = 3
+    DEV = 3,
+    UX = 4,
+    PLAN = 5
+}
+
+/// <summary>
+/// Tipo de flujo DevFlow.
+/// </summary>
+public enum DevFlowType
+{
+    Discovery = 0,
+    AutoDev = 1,
+    Development = 2
 }
 
 /// <summary>
@@ -18,9 +30,16 @@ public enum DevFlowRunStatus
 {
     Created = 0,
     InProgress = 1,
-    Paused = 2,
-    Completed = 3,
-    Cancelled = 4
+    PendingApproval = 2,
+    Paused = 3,
+    Completed = 4,
+    Cancelled = 5
+}
+
+public enum DevFlowScope
+{
+    UserProject = 0,
+    InternalSystem = 1
 }
 
 /// <summary>
@@ -31,6 +50,7 @@ public class DevFlowRunListItem
     public int Id { get; set; }
     public int? ProjectId { get; set; }
     public string Title { get; set; } = string.Empty;
+    public DevFlowType FlowType { get; set; }
     public DevFlowRunStatus Status { get; set; }
     public DevFlowStage? CurrentStage { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -70,6 +90,7 @@ public class CreateDevFlowRunRequest
     public int? ProjectId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public DevFlowType FlowType { get; set; } = DevFlowType.Discovery;
 }
 
 /// <summary>
@@ -81,6 +102,7 @@ public class DevFlowRunResponse
     public int? ProjectId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public DevFlowType FlowType { get; set; }
     public DevFlowRunStatus Status { get; set; }
     public DevFlowStage? CurrentStage { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -106,11 +128,13 @@ public class DevFlowRunDetailResponse
     public int? ProjectId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public DevFlowType FlowType { get; set; }
     public DevFlowRunStatus Status { get; set; }
     public DevFlowStage? CurrentStage { get; set; }
     public int CreatedByUserId { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public DevFlowScope Scope { get; set; }
     public List<DevFlowArtifactSummaryDto> Artifacts { get; set; } = new();
     public List<DevFlowGateSummaryDto> Gates { get; set; } = new();
 }
@@ -123,6 +147,7 @@ public class DevFlowArtifactSummaryDto
     public int Id { get; set; }
     public DevFlowStage Stage { get; set; }
     public AgentRole AgentRole { get; set; }
+    public string PayloadJson { get; set; } = string.Empty;
     public int Version { get; set; }
     public DateTime CreatedAt { get; set; }
 }
@@ -167,6 +192,7 @@ public class ExecuteStageArtifactDto
     public int Id { get; set; }
     public DevFlowStage Stage { get; set; }
     public AgentRole AgentRole { get; set; }
+    public string PayloadJson { get; set; } = string.Empty;
     public int Version { get; set; }
     public DateTime CreatedAt { get; set; }
 }

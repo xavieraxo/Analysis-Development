@@ -23,4 +23,9 @@ public class CreateDevFlowRunRequest
     /// Descripción o idea inicial del cambio.
     /// </summary>
     public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Tipo de flujo DevFlow a ejecutar.
+    /// </summary>
+    public Data.Models.DevFlowType FlowType { get; set; } = Data.Models.DevFlowType.Discovery;
 }

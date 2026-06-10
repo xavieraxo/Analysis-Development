@@ -20,6 +20,7 @@ public class ExecuteStageArtifactDto
     public int Id { get; set; }
     public DevFlowStage Stage { get; set; }
     public AgentRole AgentRole { get; set; }
+    public string PayloadJson { get; set; } = string.Empty;
     public int Version { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -12,6 +12,7 @@ public class DevFlowRunDetailResponse
     public int? ProjectId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public DevFlowType FlowType { get; set; }
     public DevFlowRunStatus Status { get; set; }
     public DevFlowStage? CurrentStage { get; set; }
     public int CreatedByUserId { get; set; }
@@ -30,6 +31,7 @@ public class DevFlowArtifactSummaryDto
     public int Id { get; set; }
     public DevFlowStage Stage { get; set; }
     public AgentRole AgentRole { get; set; }
+    public string PayloadJson { get; set; } = string.Empty;
     public int Version { get; set; }
     public DateTime CreatedAt { get; set; }
 }

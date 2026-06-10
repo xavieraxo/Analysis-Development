@@ -55,11 +55,14 @@ public class BranchPlanExportTests : IClassFixture<GatewayApiFactory>
     public async Task GetBranchPlan_ConSuperUsuario_ExistePlan_Devuelve200Json()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
 
         var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "Run con BranchPlan",
-            Description = "Test export"
+            Description = "Test export",
+            FlowType = DevFlowType.AutoDev
         });
         var created = await createResponse.Content.ReadFromJsonAsync<DevFlowRunResponse>();
         Assert.NotNull(created);
@@ -82,11 +85,14 @@ public class BranchPlanExportTests : IClassFixture<GatewayApiFactory>
     public async Task GetBranchPlan_FormatMd_Devuelve200Markdown()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
 
         var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "Run para MD test",
-            Description = "Test"
+            Description = "Test",
+            FlowType = DevFlowType.AutoDev
         });
         var created = await createResponse.Content.ReadFromJsonAsync<DevFlowRunResponse>();
         Assert.NotNull(created);
@@ -117,11 +123,14 @@ public class BranchPlanExportTests : IClassFixture<GatewayApiFactory>
     public async Task GetBranchPlan_RunSinBranchPlan_Devuelve404()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
 
         var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "Run sin plan",
-            Description = "Sin BranchPlan"
+            Description = "Sin BranchPlan",
+            FlowType = DevFlowType.AutoDev
         });
         var created = await createResponse.Content.ReadFromJsonAsync<DevFlowRunResponse>();
         Assert.NotNull(created);
