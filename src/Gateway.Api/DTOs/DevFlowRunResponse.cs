@@ -11,6 +11,7 @@ public class DevFlowRunResponse
     public int? ProjectId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public DevFlowType FlowType { get; set; }
     public DevFlowRunStatus Status { get; set; }
     public DevFlowStage? CurrentStage { get; set; }
     public DateTime CreatedAt { get; set; }

@@ -1,0 +1,352 @@
+{
+  "formatVersion": 1,
+  "planId": "discovery-mvp-etapa1",
+  "title": "Discovery completo (Etapa 1 del producto)",
+  "createdAt": "2026-06-09",
+  "sourceDocument": "documentacion/autodev/PLAN_DISCOVERY_MVP.md",
+  "branchPrefix": "feature/discovery-mvp",
+  "mergeTarget": "main",
+  "vision": "Idea -> Discovery -> Aprobacion -> Development -> AutoDev -> Entregable",
+  "preserve": [
+    "Pipeline AutoDev (UR->PM->PO->DEV)",
+    "Etapa DEV y DevAgent",
+    "BranchPlan y su export JSON/MD",
+    "/api/chat/run y Orchestrator",
+    "Mapping PLAN->PM"
+  ],
+  "milestones": [
+    {
+      "milestoneId": "H10",
+      "title": "Idea -> Discovery automático y acceso del dueño",
+      "order": 1,
+      "stories": [
+        {
+          "storyId": "HU-10.1",
+          "title": "Crear proyecto inicia run Discovery",
+          "tasks": [
+            {
+              "taskId": "10.1.1",
+              "title": "Exponer creación proyecto + run Discovery",
+              "branchName": "feature/discovery-mvp/project-create-discovery-run",
+              "area": "backend",
+              "files": [
+                "src/Gateway.Api/Program.cs",
+                "src/Gateway.Api/Services/ProjectService.cs",
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": []
+            }
+          ]
+        },
+        {
+          "storyId": "HU-10.2",
+          "title": "El dueño del proyecto accede a su run Discovery",
+          "tasks": [
+            {
+              "taskId": "10.2.1",
+              "title": "Política de acceso por ownership",
+              "branchName": "feature/discovery-mvp/devflow-owner-policy",
+              "area": "backend",
+              "files": [
+                "src/Gateway.Api/Program.cs",
+                "src/Gateway.Api/Services/DevFlowService.cs",
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": ["10.1.1"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "milestoneId": "H11",
+      "title": "Etapa UR conversacional",
+      "order": 2,
+      "stories": [
+        {
+          "storyId": "HU-11.1",
+          "title": "Modelo de conversación por etapa",
+          "tasks": [
+            {
+              "taskId": "11.1.1",
+              "title": "Entidad DevFlowStageMessage + migración",
+              "branchName": "feature/discovery-mvp/stage-message-entity",
+              "area": "backend-data",
+              "files": [
+                "src/Gateway.Api/Data/Models/DevFlowStageMessage.cs",
+                "src/Gateway.Api/Data/ApplicationDbContext.cs",
+                "src/Gateway.Api/Migrations/"
+              ],
+              "dependsOn": []
+            }
+          ]
+        },
+        {
+          "storyId": "HU-11.2",
+          "title": "Endpoints de conversación UR",
+          "tasks": [
+            {
+              "taskId": "11.2.1",
+              "title": "Endpoints de mensajes de etapa",
+              "branchName": "feature/discovery-mvp/ur-conversation-endpoints",
+              "area": "backend",
+              "files": [
+                "src/Gateway.Api/Program.cs",
+                "src/Gateway.Api/Services/DevFlowService.cs",
+                "src/Gateway.Api/DTOs/",
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": ["11.1.1", "10.2.1"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-11.3",
+          "title": "Cierre de la etapa UR y generación del artefacto",
+          "tasks": [
+            {
+              "taskId": "11.3.1",
+              "title": "Cierre de etapa conversacional",
+              "branchName": "feature/discovery-mvp/ur-conversation-close",
+              "area": "backend",
+              "files": [
+                "src/Gateway.Api/Services/DevFlowService.cs",
+                "src/Gateway.Api/Program.cs",
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": ["11.2.1"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-11.4",
+          "title": "Prompt UR en modo discovery conversacional",
+          "tasks": [
+            {
+              "taskId": "11.4.1",
+              "title": "Ajuste de prompt UR",
+              "branchName": "feature/discovery-mvp/ur-discovery-prompt",
+              "area": "prompts",
+              "files": [
+                "src/Agents.UR/promptUsuarioRepresentante.md"
+              ],
+              "dependsOn": ["11.3.1"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "milestoneId": "H12",
+      "title": "Etapas internas encadenadas y estimaciones",
+      "order": 3,
+      "stories": [
+        {
+          "storyId": "HU-12.1",
+          "title": "Ejecución automática en cadena",
+          "tasks": [
+            {
+              "taskId": "12.1.1",
+              "title": "Encadenador de etapas Discovery",
+              "branchName": "feature/discovery-mvp/auto-stage-chain",
+              "area": "backend",
+              "files": [
+                "src/Gateway.Api/Services/DevFlowService.cs",
+                "src/Gateway.Api/Program.cs",
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": ["11.3.1"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-12.2",
+          "title": "Retorno a UR por información faltante",
+          "tasks": [
+            {
+              "taskId": "12.2.1",
+              "title": "Ciclo de información faltante",
+              "branchName": "feature/discovery-mvp/ur-missing-info-loop",
+              "area": "backend-prompts",
+              "files": [
+                "src/Gateway.Api/Services/DevFlowService.cs",
+                "src/Agents.PM/promptAgentePM.md",
+                "src/Agents.PO/promptAgentePO.md",
+                "src/Agents.UX/promptAgenteUX-UI.md",
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": ["12.1.1"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-12.3",
+          "title": "Estimaciones estructuradas en PLAN",
+          "tasks": [
+            {
+              "taskId": "12.3.1",
+              "title": "Estimaciones en prompt PLAN + exposición en DTO",
+              "branchName": "feature/discovery-mvp/plan-estimates",
+              "area": "backend-prompts",
+              "files": [
+                "src/Gateway.Api/DTOs/DevFlowRunDetailResponse.cs",
+                "src/Gateway.Api/Services/DevFlowService.cs",
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": ["12.1.1"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "milestoneId": "H13",
+      "title": "UI del usuario final y aprobación del cliente",
+      "order": 4,
+      "stories": [
+        {
+          "storyId": "HU-13.1",
+          "title": "Página Discovery del proyecto",
+          "tasks": [
+            {
+              "taskId": "13.1.2",
+              "title": "Componente compartido de pipeline/artefactos",
+              "branchName": "feature/discovery-mvp/ui-shared-pipeline-component",
+              "area": "ui",
+              "files": [
+                "src/Gateway.Blazor/Shared/DevFlowPipelineView.razor",
+                "src/Gateway.Blazor/Pages/AdminDevFlowDetail.razor"
+              ],
+              "dependsOn": []
+            },
+            {
+              "taskId": "13.1.1",
+              "title": "Página de Discovery con chat UR",
+              "branchName": "feature/discovery-mvp/ui-user-discovery-page",
+              "area": "ui",
+              "files": [
+                "src/Gateway.Blazor/Pages/ProjectDiscovery.razor",
+                "src/Gateway.Blazor/Models/DevFlowRunModels.cs"
+              ],
+              "dependsOn": ["11.2.1", "10.2.1", "13.1.2"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-13.2",
+          "title": "Reportes y estimaciones para el cliente",
+          "tasks": [
+            {
+              "taskId": "13.2.1",
+              "title": "Vista de reportes del Discovery",
+              "branchName": "feature/discovery-mvp/ui-discovery-reports",
+              "area": "ui",
+              "files": [
+                "src/Gateway.Blazor/Pages/ProjectDiscovery.razor"
+              ],
+              "dependsOn": ["13.1.1", "12.3.1"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-13.3",
+          "title": "Decisión del cliente (aprobación final)",
+          "tasks": [
+            {
+              "taskId": "13.3.1",
+              "title": "Aprobación final por el dueño",
+              "branchName": "feature/discovery-mvp/client-final-approval",
+              "area": "backend-ui",
+              "files": [
+                "src/Gateway.Api/Program.cs",
+                "src/Gateway.Api/Services/DevFlowService.cs",
+                "src/Gateway.Blazor/Pages/ProjectDiscovery.razor",
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": ["13.1.1", "10.2.1"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "milestoneId": "H14",
+      "title": "Gate por plan (stub) y validación end-to-end",
+      "order": 5,
+      "stories": [
+        {
+          "storyId": "HU-14.1",
+          "title": "IPlanLimitService mínimo",
+          "tasks": [
+            {
+              "taskId": "14.1.1",
+              "title": "IPlanLimitService + integración",
+              "branchName": "feature/discovery-mvp/plan-limit-service",
+              "area": "backend",
+              "files": [
+                "src/Gateway.Api/Services/IPlanLimitService.cs",
+                "src/Gateway.Api/Services/PlanLimitService.cs",
+                "src/Gateway.Api/Services/ProjectService.cs",
+                "src/Gateway.Api/Program.cs",
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": []
+            }
+          ]
+        },
+        {
+          "storyId": "HU-14.2",
+          "title": "Botón Continuar a Desarrollo (preparado, no activo)",
+          "tasks": [
+            {
+              "taskId": "14.2.1",
+              "title": "Punto de continuación a Development",
+              "branchName": "feature/discovery-mvp/continue-development-stub",
+              "area": "backend-ui",
+              "files": [
+                "src/Gateway.Api/Program.cs",
+                "src/Gateway.Blazor/Pages/ProjectDiscovery.razor",
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": ["14.1.1", "13.3.1"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-14.3",
+          "title": "Tests automatizados y validación manual",
+          "tasks": [
+            {
+              "taskId": "14.3.1",
+              "title": "Tests E2E Discovery conversacional",
+              "branchName": "feature/discovery-mvp/tests-discovery-conversational",
+              "area": "tests",
+              "files": [
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": ["14.2.1"]
+            },
+            {
+              "taskId": "14.3.2",
+              "title": "E2E manual con Ollama: discovery completo",
+              "branchName": null,
+              "manual": true
+            },
+            {
+              "taskId": "14.3.3",
+              "title": "Regresión manual AutoDev sin cambios",
+              "branchName": null,
+              "manual": true
+            },
+            {
+              "taskId": "14.3.4",
+              "title": "Registrar evidencia en ticket de cierre",
+              "branchName": null,
+              "manual": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

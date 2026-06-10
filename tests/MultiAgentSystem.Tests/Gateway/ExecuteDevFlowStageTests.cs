@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Data.Models;
 using Gateway.Api.DTOs;
+using Shared.Abstractions;
 
 namespace MultiAgentSystem.Tests.Gateway;
 
@@ -21,11 +22,14 @@ public class ExecuteDevFlowStageTests : IClassFixture<GatewayApiFactory>
     public async Task ExecuteStage_ConSuperUsuario_EjecutaUR_Devuelve200()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
 
         var createRequest = new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "Run para execute-stage",
-            Description = "Idea de cambio"
+            Description = "Idea de cambio",
+            FlowType = DevFlowType.AutoDev
         };
         var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", createRequest);
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -56,11 +60,14 @@ public class ExecuteDevFlowStageTests : IClassFixture<GatewayApiFactory>
     public async Task ExecuteStage_SeCreaDevFlowArtifactYRunAvanza()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
 
         var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "Test artifact",
-            Description = "Desc"
+            Description = "Desc",
+            FlowType = DevFlowType.AutoDev
         });
         var created = await createResponse.Content.ReadFromJsonAsync<DevFlowRunResponse>();
         Assert.NotNull(created);
@@ -88,11 +95,14 @@ public class ExecuteDevFlowStageTests : IClassFixture<GatewayApiFactory>
     public async Task ExecuteStage_GatePending_Devuelve409()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
 
         var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "Run para gate test",
-            Description = "Desc"
+            Description = "Desc",
+            FlowType = DevFlowType.AutoDev
         });
         var created = await createResponse.Content.ReadFromJsonAsync<DevFlowRunResponse>();
         Assert.NotNull(created);
@@ -102,6 +112,45 @@ public class ExecuteDevFlowStageTests : IClassFixture<GatewayApiFactory>
             new ExecuteStageRequest { OverrideStage = DevFlowStage.PM, InputText = "pm" });
 
         Assert.Equal(HttpStatusCode.Conflict, executePmResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExecuteStage_Discovery_NoEjecutaDevYTerminaPendingApproval()
+    {
+        var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest
+        {
+            ProjectId = projectId,
+            Title = "Discovery run",
+            Description = "Desc",
+            FlowType = DevFlowType.Discovery
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<DevFlowRunResponse>();
+        Assert.NotNull(created);
+
+        await client.PostAsJsonAsync($"/api/devflow/runs/{created.Id}/execute-stage", new ExecuteStageRequest { InputText = "ur" });
+        await client.PostAsJsonAsync($"/api/devflow/runs/{created.Id}/approve", new ApproveGateRequest { Stage = DevFlowStage.UR, Approved = true });
+
+        await client.PostAsJsonAsync($"/api/devflow/runs/{created.Id}/execute-stage", new ExecuteStageRequest { InputText = "pm" });
+        await client.PostAsJsonAsync($"/api/devflow/runs/{created.Id}/approve", new ApproveGateRequest { Stage = DevFlowStage.PM, Approved = true });
+
+        await client.PostAsJsonAsync($"/api/devflow/runs/{created.Id}/execute-stage", new ExecuteStageRequest { InputText = "po" });
+        await client.PostAsJsonAsync($"/api/devflow/runs/{created.Id}/approve", new ApproveGateRequest { Stage = DevFlowStage.PO, Approved = true });
+
+        await client.PostAsJsonAsync($"/api/devflow/runs/{created.Id}/execute-stage", new ExecuteStageRequest { InputText = "ux" });
+        await client.PostAsJsonAsync($"/api/devflow/runs/{created.Id}/approve", new ApproveGateRequest { Stage = DevFlowStage.UX, Approved = true });
+
+        var finalExecute = await client.PostAsJsonAsync($"/api/devflow/runs/{created.Id}/execute-stage", new ExecuteStageRequest { InputText = "plan" });
+        Assert.Equal(HttpStatusCode.OK, finalExecute.StatusCode);
+        var finalResult = await finalExecute.Content.ReadFromJsonAsync<ExecuteStageResponse>();
+
+        Assert.NotNull(finalResult);
+        Assert.Equal(DevFlowStage.PLAN, finalResult.Artifact.Stage);
+        Assert.Equal(DevFlowRunStatus.PendingApproval, finalResult.Run.Status);
+        Assert.Equal(DevFlowStage.PLAN, finalResult.Run.CurrentStage);
+        Assert.DoesNotContain(finalResult.Run.Artifacts, a => a.Stage == DevFlowStage.DEV || a.AgentRole == AgentRole.Dev);
     }
 }
 

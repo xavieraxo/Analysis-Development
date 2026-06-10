@@ -21,11 +21,14 @@ public class GetDevFlowRunTests : IClassFixture<GatewayApiFactory>
     public async Task GetDevFlowRun_ConSuperUsuario_RunExiste_Devuelve200()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
 
         var createRequest = new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "Run para GET test",
-            Description = "Descripción"
+            Description = "Descripción",
+            FlowType = Data.Models.DevFlowType.Discovery
         };
         var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", createRequest);
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -39,10 +42,37 @@ public class GetDevFlowRunTests : IClassFixture<GatewayApiFactory>
         Assert.NotNull(run);
         Assert.Equal(created.Id, run.Id);
         Assert.Equal("Run para GET test", run.Title);
+        Assert.Equal(Data.Models.DevFlowType.Discovery, run.FlowType);
         Assert.NotNull(run.Artifacts);
         Assert.NotNull(run.Gates);
         Assert.Empty(run.Artifacts);
         Assert.Empty(run.Gates);
+    }
+
+    [Fact]
+    public async Task GetDevFlowRun_ExponePayloadJsonDelArtifact()
+    {
+        var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
+
+        var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest
+        {
+            ProjectId = projectId,
+            Title = "Run con artifact",
+            Description = "Descripción",
+            FlowType = Data.Models.DevFlowType.Discovery
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<DevFlowRunResponse>();
+        Assert.NotNull(created);
+
+        await client.PostAsJsonAsync($"/api/devflow/runs/{created.Id}/execute-stage", new ExecuteStageRequest { InputText = "Necesito discovery" });
+
+        var getResponse = await client.GetAsync($"/api/devflow/runs/{created.Id}");
+        var run = await getResponse.Content.ReadFromJsonAsync<DevFlowRunDetailResponse>();
+
+        Assert.NotNull(run);
+        Assert.Single(run.Artifacts);
+        Assert.False(string.IsNullOrWhiteSpace(run.Artifacts[0].PayloadJson));
     }
 
     [Fact]

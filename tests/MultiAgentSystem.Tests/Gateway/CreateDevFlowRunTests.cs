@@ -28,10 +28,13 @@ public class CreateDevFlowRunTests : IClassFixture<GatewayApiFactory>
     public async Task CreateDevFlowRun_ConSuperUsuario_Devuelve201()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
         var request = new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "Implementar login con OAuth",
-            Description = "Integrar autenticación con proveedores externos"
+            Description = "Integrar autenticación con proveedores externos",
+            FlowType = DevFlowType.Discovery
         };
 
         var response = await client.PostAsJsonAsync("/api/devflow/runs", request);
@@ -42,6 +45,7 @@ public class CreateDevFlowRunTests : IClassFixture<GatewayApiFactory>
         Assert.True(run.Id > 0);
         Assert.Equal("Implementar login con OAuth", run.Title);
         Assert.Equal("Integrar autenticación con proveedores externos", run.Description);
+        Assert.Equal(DevFlowType.Discovery, run.FlowType);
         Assert.Equal(DevFlowRunStatus.Created, run.Status);
         Assert.Equal(DevFlowStage.UR, run.CurrentStage);
     }
@@ -50,10 +54,13 @@ public class CreateDevFlowRunTests : IClassFixture<GatewayApiFactory>
     public async Task CreateDevFlowRun_SinTitulo_Devuelve400()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
         var request = new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "",
-            Description = "Descripción sin título"
+            Description = "Descripción sin título",
+            FlowType = DevFlowType.Discovery
         };
 
         var response = await client.PostAsJsonAsync("/api/devflow/runs", request);
@@ -80,8 +87,10 @@ public class CreateDevFlowRunAdminForbiddenTests : IClassFixture<GatewayApiFacto
         var client = _factory.CreateClient();
         var request = new CreateDevFlowRunRequest
         {
+            ProjectId = 1,
             Title = "Test run",
-            Description = "Test"
+            Description = "Test",
+            FlowType = DevFlowType.Discovery
         };
 
         var response = await client.PostAsJsonAsync("/api/devflow/runs", request);

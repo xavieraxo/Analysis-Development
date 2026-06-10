@@ -20,6 +20,8 @@ public class DevFlowAgentDispatcherTests
     [InlineData(DevFlowStage.UR, AgentRole.UR)]
     [InlineData(DevFlowStage.PM, AgentRole.PM)]
     [InlineData(DevFlowStage.PO, AgentRole.PO)]
+    [InlineData(DevFlowStage.UX, AgentRole.UX)]
+    [InlineData(DevFlowStage.PLAN, AgentRole.PM)]
     [InlineData(DevFlowStage.DEV, AgentRole.Dev)]
     public void ResolveAgent_StageTieneAgente_DevuelveAgenteCorrecto(DevFlowStage stage, AgentRole expectedRole)
     {
@@ -28,6 +30,7 @@ public class DevFlowAgentDispatcherTests
             new TestAgent(AgentRole.UR, "out-ur"),
             new TestAgent(AgentRole.PM, "out-pm"),
             new TestAgent(AgentRole.PO, "out-po"),
+            new TestAgent(AgentRole.UX, "out-ux"),
             new TestAgent(AgentRole.Dev, "out-dev"),
         };
         var dispatcher = CreateDispatcher(agents);
@@ -45,6 +48,7 @@ public class DevFlowAgentDispatcherTests
             new TestAgent(AgentRole.UR),
             new TestAgent(AgentRole.PM),
             new TestAgent(AgentRole.PO),
+            new TestAgent(AgentRole.UX),
             // Sin Dev
         };
         var dispatcher = CreateDispatcher(agents);
@@ -58,7 +62,7 @@ public class DevFlowAgentDispatcherTests
     public async Task ExecuteAsync_StageUR_DevuelveDevFlowAgentResultConPayloadDelAgente()
     {
         var urAgent = new TestAgent(AgentRole.UR, "respuesta-ur-payload");
-        var dispatcher = CreateDispatcher(urAgent, new TestAgent(AgentRole.PM), new TestAgent(AgentRole.PO), new TestAgent(AgentRole.Dev));
+        var dispatcher = CreateDispatcher(urAgent, new TestAgent(AgentRole.PM), new TestAgent(AgentRole.PO), new TestAgent(AgentRole.UX), new TestAgent(AgentRole.Dev));
 
         var input = new DevFlowAgentInput
         {
@@ -79,7 +83,7 @@ public class DevFlowAgentDispatcherTests
     public async Task ExecuteAsync_ConPreviousArtifacts_IncluyeEnContextoDelAgente()
     {
         var pmAgent = new TestAgent(AgentRole.PM, "respuesta-pm");
-        var dispatcher = CreateDispatcher(new TestAgent(AgentRole.UR), pmAgent, new TestAgent(AgentRole.PO), new TestAgent(AgentRole.Dev));
+        var dispatcher = CreateDispatcher(new TestAgent(AgentRole.UR), pmAgent, new TestAgent(AgentRole.PO), new TestAgent(AgentRole.UX), new TestAgent(AgentRole.Dev));
 
         var input = new DevFlowAgentInput
         {
@@ -99,7 +103,7 @@ public class DevFlowAgentDispatcherTests
     public async Task ExecuteAsync_SinConversationId_UsaDevflowRunId()
     {
         var urAgent = new TestAgent(AgentRole.UR, "ok");
-        var dispatcher = CreateDispatcher(urAgent, new TestAgent(AgentRole.PM), new TestAgent(AgentRole.PO), new TestAgent(AgentRole.Dev));
+        var dispatcher = CreateDispatcher(urAgent, new TestAgent(AgentRole.PM), new TestAgent(AgentRole.PO), new TestAgent(AgentRole.UX), new TestAgent(AgentRole.Dev));
 
         var input = new DevFlowAgentInput { RunId = 99, UserMessage = "msg" };
 
@@ -111,12 +115,30 @@ public class DevFlowAgentDispatcherTests
     [Fact]
     public async Task ExecuteAsync_StageSinAgente_LanzaInvalidOperationException()
     {
-        var agents = new IAgent[] { new TestAgent(AgentRole.UR), new TestAgent(AgentRole.PM), new TestAgent(AgentRole.PO) };
+        var agents = new IAgent[] { new TestAgent(AgentRole.UR), new TestAgent(AgentRole.PM), new TestAgent(AgentRole.PO), new TestAgent(AgentRole.UX) };
         var dispatcher = CreateDispatcher(agents);
 
         var input = new DevFlowAgentInput { RunId = 1, UserMessage = "x" };
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => dispatcher.ExecuteAsync(DevFlowStage.DEV, input));
+    }
+
+    [Fact]
+    public void ResolveAgent_StagePLAN_UsaPm()
+    {
+        var agents = new IAgent[]
+        {
+            new TestAgent(AgentRole.UR, "out-ur"),
+            new TestAgent(AgentRole.PM, "out-pm"),
+            new TestAgent(AgentRole.PO, "out-po"),
+            new TestAgent(AgentRole.UX, "out-ux"),
+            new TestAgent(AgentRole.Dev, "out-dev"),
+        };
+        var dispatcher = CreateDispatcher(agents);
+
+        var agent = dispatcher.ResolveAgent(DevFlowStage.PLAN);
+
+        Assert.Equal(AgentRole.PM, agent.Role);
     }
 }

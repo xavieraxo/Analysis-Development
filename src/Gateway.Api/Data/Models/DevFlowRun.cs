@@ -1,14 +1,26 @@
 namespace Data.Models;
 
 /// <summary>
-/// Etapas del pipeline DevFlow (UR → PM → PO → DEV).
+/// Etapas del pipeline DevFlow.
 /// </summary>
 public enum DevFlowStage
 {
     UR = 0,   // Usuario Representante
     PM = 1,   // Project Manager
     PO = 2,   // Product Owner
-    DEV = 3   // Desarrollador
+    DEV = 3,  // Desarrollador
+    UX = 4,   // UX / diseño preliminar
+    PLAN = 5  // Síntesis final del plan de implementación
+}
+
+/// <summary>
+/// Tipo de flujo soportado por DevFlow.
+/// </summary>
+public enum DevFlowType
+{
+    Discovery = 0,
+    AutoDev = 1,
+    Development = 2
 }
 
 /// <summary>
@@ -18,9 +30,10 @@ public enum DevFlowRunStatus
 {
     Created = 0,
     InProgress = 1,
-    Paused = 2,
-    Completed = 3,
-    Cancelled = 4
+    PendingApproval = 2,
+    Paused = 3,
+    Completed = 4,
+    Cancelled = 5
 }
 
 /// <summary>
@@ -43,6 +56,7 @@ public class DevFlowRun
     public Project Project { get; set; } = null!;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public DevFlowType FlowType { get; set; } = DevFlowType.AutoDev;
     public DevFlowRunStatus Status { get; set; } = DevFlowRunStatus.Created;
     public DevFlowStage? CurrentStage { get; set; }
     public int CreatedByUserId { get; set; }
@@ -63,4 +77,3 @@ public enum DevFlowScope
     UserProject = 0,
     InternalSystem = 1
 }
-

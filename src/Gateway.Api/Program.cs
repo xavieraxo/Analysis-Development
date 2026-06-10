@@ -759,6 +759,11 @@ app.MapPost("/api/devflow/runs", [Authorize(Policy = AuthorizationRoles.SuperUse
     IDevFlowService devFlowService,
     CreateDevFlowRunRequest request) =>
 {
+    if (!request.ProjectId.HasValue || request.ProjectId.Value <= 0)
+    {
+        return Results.BadRequest(new { message = "ProjectId es requerido para crear un DevFlow run." });
+    }
+
     if (string.IsNullOrWhiteSpace(request.Title))
     {
         return Results.BadRequest(new { message = "El título es requerido" });
@@ -770,7 +775,16 @@ app.MapPost("/api/devflow/runs", [Authorize(Policy = AuthorizationRoles.SuperUse
         return Results.Json(new { message = "Token inválido" }, statusCode: 403);
     }
 
-    var run = await devFlowService.CreateRunAsync(request, createdByUserId);
+    DevFlowRunResponse? run;
+    try
+    {
+        run = await devFlowService.CreateRunAsync(request, createdByUserId);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+
     if (run == null)
     {
         return Results.BadRequest(new { message = "El ProjectId no existe" });

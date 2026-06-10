@@ -1,0 +1,325 @@
+{
+  "formatVersion": 1,
+  "planId": "devflow-agent-responses-fix",
+  "title": "Corrección respuestas agentes DevFlow / Discovery",
+  "createdAt": "2026-06-08",
+  "sourceDocument": "documentacion/autodev/PLAN_DEVFLOW_AGENT_RESPONSES.md",
+  "branchPrefix": "feature/devflow-agents",
+  "mergeTarget": "main",
+  "milestones": [
+    {
+      "milestoneId": "H6",
+      "title": "Diagnóstico y baseline operativo",
+      "order": 1,
+      "stories": [
+        {
+          "storyId": "HU-6.1",
+          "title": "Establecer baseline de diagnóstico DevFlow",
+          "tasks": [
+            {
+              "taskId": "6.1.1",
+              "title": "Runbook y checklist de diagnóstico",
+              "branchName": "feature/devflow-agents/diagnostic-runbook",
+              "area": "docs",
+              "files": [
+                "documentacion/autodev/DEVFLOW_AGENT_DIAGNOSTIC_RUNBOOK.md"
+              ],
+              "dependsOn": []
+            }
+          ]
+        },
+        {
+          "storyId": "HU-6.2",
+          "title": "Validación manual conectividad IA",
+          "tasks": [
+            {
+              "taskId": "6.2.1",
+              "title": "Verificar contenedores y puertos",
+              "branchName": null,
+              "manual": true
+            },
+            {
+              "taskId": "6.2.2",
+              "title": "Confirmar modelo Ollama instalado",
+              "branchName": null,
+              "manual": true
+            },
+            {
+              "taskId": "6.2.3",
+              "title": "Probar execute-stage vía Swagger",
+              "branchName": null,
+              "manual": true
+            },
+            {
+              "taskId": "6.2.4",
+              "title": "Consultar DevFlowArtifacts en PostgreSQL",
+              "branchName": null,
+              "manual": true
+            },
+            {
+              "taskId": "6.2.5",
+              "title": "Comparar con /api/chat/run",
+              "branchName": null,
+              "manual": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "milestoneId": "H7",
+      "title": "Corrección backend",
+      "order": 2,
+      "stories": [
+        {
+          "storyId": "HU-7.1",
+          "title": "Observabilidad ejecución agentes DevFlow",
+          "tasks": [
+            {
+              "taskId": "7.1.1",
+              "title": "Logging en DevFlowAgentDispatcher",
+              "branchName": "feature/devflow-agents/dispatcher-logging",
+              "area": "backend",
+              "files": [
+                "src/Gateway.Api/Services/DevFlowAgentDispatcher.cs"
+              ],
+              "dependsOn": ["6.1.1"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-7.2",
+          "title": "Errores LLM traducidos en API DevFlow",
+          "tasks": [
+            {
+              "taskId": "7.2.1",
+              "title": "Manejo errores LLM en DevFlowService",
+              "branchName": "feature/devflow-agents/llm-error-handling",
+              "area": "backend",
+              "files": [
+                "src/Gateway.Api/Services/DevFlowService.cs",
+                "src/Gateway.Api/Program.cs"
+              ],
+              "dependsOn": ["7.1.1"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-7.3",
+          "title": "Contexto artefactos previos por pipeline",
+          "tasks": [
+            {
+              "taskId": "7.3.1",
+              "title": "Filtro artefactos previos por pipeline",
+              "branchName": "feature/devflow-agents/pipeline-artifacts-context",
+              "area": "backend",
+              "files": [
+                "src/Gateway.Api/Services/DevFlowService.cs"
+              ],
+              "dependsOn": []
+            }
+          ]
+        },
+        {
+          "storyId": "HU-7.4",
+          "title": "Contrato API artifact en execute-stage",
+          "tasks": [
+            {
+              "taskId": "7.4.1",
+              "title": "PayloadJson en ExecuteStageArtifactDto",
+              "branchName": "feature/devflow-agents/execute-stage-payload-dto",
+              "area": "backend",
+              "files": [
+                "src/Gateway.Api/DTOs/ExecuteStageResponse.cs",
+                "src/Gateway.Blazor/Models/DevFlowRunModels.cs",
+                "src/Gateway.Api/Services/DevFlowService.cs"
+              ],
+              "dependsOn": []
+            }
+          ]
+        },
+        {
+          "storyId": "HU-7.5",
+          "title": "Guardas estado PendingApproval",
+          "tasks": [
+            {
+              "taskId": "7.5.1",
+              "title": "Guard PendingApproval etapa terminal",
+              "branchName": "feature/devflow-agents/pending-approval-guard",
+              "area": "backend",
+              "files": [
+                "src/Gateway.Api/Services/DevFlowService.cs"
+              ],
+              "dependsOn": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "milestoneId": "H8",
+      "title": "Corrección UI DevFlow",
+      "order": 3,
+      "stories": [
+        {
+          "storyId": "HU-8.1",
+          "title": "Visualizar contenido artifacts",
+          "tasks": [
+            {
+              "taskId": "8.1.1",
+              "title": "UI contenido de artifacts",
+              "branchName": "feature/devflow-agents/ui-artifact-content",
+              "area": "frontend",
+              "files": [
+                "src/Gateway.Blazor/Pages/AdminDevFlowDetail.razor"
+              ],
+              "dependsOn": ["7.4.1"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-8.2",
+          "title": "Pipeline y gates dinámicos por FlowType",
+          "tasks": [
+            {
+              "taskId": "8.2.1",
+              "title": "Pipeline dinámico por FlowType",
+              "branchName": "feature/devflow-agents/ui-dynamic-pipeline",
+              "area": "frontend",
+              "files": [
+                "src/Gateway.Blazor/Pages/AdminDevFlowDetail.razor"
+              ],
+              "dependsOn": []
+            },
+            {
+              "taskId": "8.2.2",
+              "title": "Gates Discovery UX/PLAN",
+              "branchName": "feature/devflow-agents/ui-discovery-gates",
+              "area": "frontend",
+              "files": [
+                "src/Gateway.Blazor/Pages/AdminDevFlowDetail.razor"
+              ],
+              "dependsOn": ["8.2.1"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-8.3",
+          "title": "Metadatos run y creación alineados Discovery",
+          "tasks": [
+            {
+              "taskId": "8.3.1",
+              "title": "Labels FlowType y PendingApproval",
+              "branchName": "feature/devflow-agents/ui-flowtype-status-labels",
+              "area": "frontend",
+              "files": [
+                "src/Gateway.Blazor/Pages/AdminDevFlowDetail.razor",
+                "src/Gateway.Blazor/Pages/AdminDevFlow.razor"
+              ],
+              "dependsOn": []
+            },
+            {
+              "taskId": "8.3.2",
+              "title": "Selector FlowType al crear run",
+              "branchName": "feature/devflow-agents/ui-create-flowtype",
+              "area": "frontend",
+              "files": [
+                "src/Gateway.Blazor/Components/CreateDevFlowRunDialog.razor"
+              ],
+              "dependsOn": []
+            },
+            {
+              "taskId": "8.3.3",
+              "title": "ApiBaseUrl desarrollo local",
+              "branchName": "feature/devflow-agents/ui-api-baseurl-config",
+              "area": "frontend",
+              "files": [
+                "src/Gateway.Blazor/appsettings.Development.json"
+              ],
+              "dependsOn": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "milestoneId": "H9",
+      "title": "Validación end-to-end y regresión",
+      "order": 4,
+      "stories": [
+        {
+          "storyId": "HU-9.1",
+          "title": "Tests automatizados Discovery y errores LLM",
+          "tasks": [
+            {
+              "taskId": "9.1.1",
+              "title": "Tests Discovery E2E mock agents",
+              "branchName": "feature/devflow-agents/tests-discovery-e2e",
+              "area": "tests",
+              "files": [
+                "tests/MultiAgentSystem.Tests/Gateway/ExecuteDevFlowStageTests.cs"
+              ],
+              "dependsOn": ["7.2.1", "8.2.2"]
+            },
+            {
+              "taskId": "9.1.2",
+              "title": "Tests respuesta error LLM",
+              "branchName": "feature/devflow-agents/tests-llm-error-response",
+              "area": "tests",
+              "files": [
+                "tests/MultiAgentSystem.Tests/Gateway/"
+              ],
+              "dependsOn": ["7.2.1"]
+            }
+          ]
+        },
+        {
+          "storyId": "HU-9.2",
+          "title": "Validación manual E2E Ollama real",
+          "tasks": [
+            {
+              "taskId": "9.2.1",
+              "title": "Smoke AutoDev completo con IA real",
+              "branchName": null,
+              "manual": true
+            },
+            {
+              "taskId": "9.2.2",
+              "title": "Smoke Discovery completo con IA real",
+              "branchName": null,
+              "manual": true
+            },
+            {
+              "taskId": "9.2.3",
+              "title": "Verificar error visible sin Ollama",
+              "branchName": null,
+              "manual": true
+            },
+            {
+              "taskId": "9.2.4",
+              "title": "Registrar evidencia cierre hito",
+              "branchName": null,
+              "manual": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "mergeOrder": [
+    "feature/devflow-agents/diagnostic-runbook",
+    "feature/devflow-agents/dispatcher-logging",
+    "feature/devflow-agents/llm-error-handling",
+    "feature/devflow-agents/pipeline-artifacts-context",
+    "feature/devflow-agents/execute-stage-payload-dto",
+    "feature/devflow-agents/pending-approval-guard",
+    "feature/devflow-agents/ui-artifact-content",
+    "feature/devflow-agents/ui-dynamic-pipeline",
+    "feature/devflow-agents/ui-discovery-gates",
+    "feature/devflow-agents/ui-flowtype-status-labels",
+    "feature/devflow-agents/ui-create-flowtype",
+    "feature/devflow-agents/ui-api-baseurl-config",
+    "feature/devflow-agents/tests-discovery-e2e",
+    "feature/devflow-agents/tests-llm-error-response"
+  ]
+}

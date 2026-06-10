@@ -37,9 +37,10 @@ public class ListDevFlowRunsTests : IClassFixture<GatewayApiFactory>
     public async Task ListDevFlowRuns_Paginacion_CreaRunsYVerificaTotal()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
 
-        await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest { Title = "Run 1", Description = "D1" });
-        await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest { Title = "Run 2", Description = "D2" });
+        await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest { ProjectId = projectId, Title = "Run 1", Description = "D1", FlowType = DevFlowType.AutoDev });
+        await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest { ProjectId = projectId, Title = "Run 2", Description = "D2", FlowType = DevFlowType.Discovery });
 
         var response = await client.GetAsync("/api/devflow/runs?page=1&pageSize=10");
 

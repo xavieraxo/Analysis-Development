@@ -4,43 +4,63 @@ using Shared.Abstractions;
 namespace Gateway.Api.Services;
 
 /// <summary>
-/// Implementación del pipeline DevFlow: UR → PM → PO → DEV.
+/// Implementación del pipeline DevFlow por tipo de flujo.
 /// </summary>
 public sealed class DevFlowPipeline : IDevFlowPipeline
 {
-    private static readonly DevFlowStage[] OrderedStages = [DevFlowStage.UR, DevFlowStage.PM, DevFlowStage.PO, DevFlowStage.DEV];
+    private static readonly IReadOnlyDictionary<DevFlowType, DevFlowStage[]> OrderedStagesByFlowType =
+        new Dictionary<DevFlowType, DevFlowStage[]>
+        {
+            [DevFlowType.Discovery] = [DevFlowStage.UR, DevFlowStage.PM, DevFlowStage.PO, DevFlowStage.UX, DevFlowStage.PLAN],
+            [DevFlowType.AutoDev] = [DevFlowStage.UR, DevFlowStage.PM, DevFlowStage.PO, DevFlowStage.DEV],
+            [DevFlowType.Development] = [DevFlowStage.UR, DevFlowStage.PM, DevFlowStage.PO, DevFlowStage.DEV]
+        };
 
     private static readonly IReadOnlyDictionary<DevFlowStage, AgentRole> StageToRole = new Dictionary<DevFlowStage, AgentRole>
     {
         [DevFlowStage.UR] = AgentRole.UR,
         [DevFlowStage.PM] = AgentRole.PM,
         [DevFlowStage.PO] = AgentRole.PO,
+        [DevFlowStage.UX] = AgentRole.UX,
+        [DevFlowStage.PLAN] = AgentRole.PM,
         [DevFlowStage.DEV] = AgentRole.Dev,
     };
 
-    /// <inheritdoc />
-    public DevFlowStage GetInitialStage() => DevFlowStage.UR;
-
-    /// <inheritdoc />
-    public DevFlowStage? GetNextStage(DevFlowStage current)
+    public IReadOnlyList<DevFlowStage> GetStages(DevFlowType flowType)
     {
-        if (IsTerminal(current))
-            return null;
-
-        var idx = Array.IndexOf(OrderedStages, current);
-        if (idx < 0 || idx >= OrderedStages.Length - 1)
-            return null;
-
-        return OrderedStages[idx + 1];
+        if (!OrderedStagesByFlowType.TryGetValue(flowType, out var stages))
+            throw new ArgumentOutOfRangeException(nameof(flowType), flowType, "FlowType no soportado.");
+        return stages;
     }
 
     /// <inheritdoc />
-    public bool IsTerminal(DevFlowStage stage) => stage == DevFlowStage.DEV;
+    public DevFlowStage GetInitialStage(DevFlowType flowType) => GetStages(flowType)[0];
 
     /// <inheritdoc />
-    public bool IsValidTransition(DevFlowStage from, DevFlowStage to)
+    public DevFlowStage? GetNextStage(DevFlowType flowType, DevFlowStage current)
     {
-        var next = GetNextStage(from);
+        var orderedStages = GetStages(flowType);
+        if (IsTerminal(flowType, current))
+            return null;
+
+        var idx = FindStageIndex(orderedStages, current);
+        if (idx < 0 || idx >= orderedStages.Count - 1)
+            return null;
+
+        return orderedStages[idx + 1];
+    }
+
+    /// <inheritdoc />
+    public bool IsTerminal(DevFlowType flowType, DevFlowStage stage)
+    {
+        var orderedStages = GetStages(flowType);
+        return orderedStages.Count > 0 && orderedStages[^1] == stage;
+    }
+
+    /// <inheritdoc />
+    public bool IsValidTransition(DevFlowType flowType, DevFlowStage from, DevFlowStage to)
+    {
+        var next = GetNextStage(flowType, from);
         return next.HasValue && next.Value == to;
     }
 
@@ -53,13 +73,25 @@ public sealed class DevFlowPipeline : IDevFlowPipeline
     }
 
     /// <inheritdoc />
-    public DevFlowStage? GetPreviousStage(DevFlowStage current)
+    public DevFlowStage? GetPreviousStage(DevFlowType flowType, DevFlowStage current)
     {
-        if (current == DevFlowStage.UR)
+        var orderedStages = GetStages(flowType);
+        if (orderedStages.Count == 0 || orderedStages[0] == current)
             return null;
-        var idx = Array.IndexOf(OrderedStages, current);
-        if (idx <= 0 || idx >= OrderedStages.Length)
+        var idx = FindStageIndex(orderedStages, current);
+        if (idx <= 0 || idx >= orderedStages.Count)
             return null;
-        return OrderedStages[idx - 1];
+        return orderedStages[idx - 1];
+    }
+
+    private static int FindStageIndex(IReadOnlyList<DevFlowStage> stages, DevFlowStage stage)
+    {
+        for (var i = 0; i < stages.Count; i++)
+        {
+            if (stages[i] == stage)
+                return i;
+        }
+
+        return -1;
     }
 }

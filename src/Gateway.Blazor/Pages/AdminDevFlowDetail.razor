@@ -58,6 +58,8 @@
                     <MudSimpleTable Dense="true">
                         <tbody>
                             <tr><td><strong>Estado</strong></td><td><MudChip T="string" Size="Size.Small" Color="@GetStatusColor(_run.Status)" Variant="Variant.Filled">@GetStatusLabel(_run.Status)</MudChip></td></tr>
+                            <tr><td><strong>FlowType</strong></td><td>@GetFlowTypeLabel(_run.FlowType)</td></tr>
+                            <tr><td><strong>Scope</strong></td><td>@_run.Scope</td></tr>
                             <tr><td><strong>Etapa actual</strong></td><td>@(_run.CurrentStage.HasValue ? GetStageLabel(_run.CurrentStage.Value) : "-")</td></tr>
                             <tr><td><strong>Creado</strong></td><td>@_run.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td></tr>
                             @if (!string.IsNullOrEmpty(_run.Description))
@@ -73,13 +75,13 @@
             <MudPaper Class="pa-4" Elevation="1">
                 <MudText Typo="Typo.h6" GutterBottom="true">Pipeline</MudText>
                 <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-                    @foreach (var stage in AllStages)
+                    @foreach (var stage in PipelineStages)
                     {
                         var (completed, isCurrent) = GetStageState(stage);
                         <MudChip T="string" Color="@(completed ? Color.Success : isCurrent ? Color.Primary : Color.Default)"
                                  Variant="@(isCurrent ? Variant.Filled : Variant.Outlined)"
                                  Size="Size.Medium">@GetStageLabel(stage) @(completed ? "✓" : isCurrent ? "●" : "")</MudChip>
-                        @if (stage != DevFlowStage.DEV)
+                        @if (stage != PipelineStages[^1])
                         {
                             <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" />
                         }
@@ -88,7 +90,7 @@
             </MudPaper>
 
                         <!-- Acciones: Execute stage -->
-            @if (_run.Status != DevFlowRunStatus.Completed && _run.Status != DevFlowRunStatus.Cancelled && _run.CurrentStage.HasValue)
+            @if (_run.Status != DevFlowRunStatus.Completed && _run.Status != DevFlowRunStatus.Cancelled && _run.Status != DevFlowRunStatus.PendingApproval && _run.CurrentStage.HasValue)
             {
                 <MudPaper Class="pa-4" Elevation="1">
                     <MudText Typo="Typo.h6" GutterBottom="true">Ejecutar etapa actual (@GetStageLabel(_run.CurrentStage.Value))</MudText>
@@ -112,12 +114,26 @@
                             <MudTh>Agente</MudTh>
                             <MudTh>Versión</MudTh>
                             <MudTh>Creado</MudTh>
+                            <MudTh>Respuesta</MudTh>
                         </HeaderContent>
                         <RowTemplate>
                             <MudTd DataLabel="Etapa">@GetStageLabel(context.Stage)</MudTd>
                             <MudTd DataLabel="Agente">@context.AgentRole</MudTd>
                             <MudTd DataLabel="Versión">@context.Version</MudTd>
                             <MudTd DataLabel="Creado">@context.CreatedAt.ToString("yyyy-MM-dd HH:mm")</MudTd>
+                            <MudTd DataLabel="Respuesta">
+                                @if (!string.IsNullOrWhiteSpace(context.PayloadJson))
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Article"
+                                               OnClick="@(() => ShowArtifactContent(context))">
+                                        Ver (@context.PayloadJson.Length chars)
+                                    </MudButton>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Warning">Vacío</MudText>
+                                }
+                            </MudTd>
                         </RowTemplate>
                     </MudTable>
                 }
@@ -137,15 +153,18 @@
                                 Refrescar estado
                             </MudButton>
                         </MudStack>
-                        @if (_run.Status == DevFlowRunStatus.Completed || _run.Status == DevFlowRunStatus.Cancelled)
+                        @if (_run.Status == DevFlowRunStatus.Completed || _run.Status == DevFlowRunStatus.Cancelled || _run.Status == DevFlowRunStatus.PendingApproval)
                         {
                             <MudAlert Severity="Severity.Info">El run está @(GetStatusLabel(_run.Status)). No se pueden aprobar ni rechazar gates.</MudAlert>
                         }
                         <MudGrid>
-                            @foreach (var stage in AllStages)
+                            @foreach (var stage in PipelineStages)
                             {
                                 var gate = _run.Gates.FirstOrDefault(g => g.Stage == stage);
-                                var canApproveReject = (gate == null || gate.Status == DevFlowGateStatus.Pending) && _run.Status != DevFlowRunStatus.Completed && _run.Status != DevFlowRunStatus.Cancelled;
+                                var canApproveReject = (gate == null || gate.Status == DevFlowGateStatus.Pending)
+                                    && _run.Status != DevFlowRunStatus.Completed
+                                    && _run.Status != DevFlowRunStatus.Cancelled
+                                    && _run.Status != DevFlowRunStatus.PendingApproval;
                                 <MudItem xs="12" md="6">
                                     <MudCard Elevation="2" Class="ma-2" Outlined="true">
                                         <MudCardHeader>
@@ -272,7 +291,18 @@
     private bool _branchPlanLoading;
     private bool _branchPlanNotFound;
 
-    private static readonly DevFlowStage[] AllStages = { DevFlowStage.UR, DevFlowStage.PM, DevFlowStage.PO, DevFlowStage.DEV };
+    private static readonly DevFlowStage[] AutoDevStages = { DevFlowStage.UR, DevFlowStage.PM, DevFlowStage.PO, DevFlowStage.DEV };
+    private static readonly DevFlowStage[] DiscoveryStages = { DevFlowStage.UR, DevFlowStage.PM, DevFlowStage.PO, DevFlowStage.UX, DevFlowStage.PLAN };
+
+    private DevFlowStage[] PipelineStages => _run == null
+        ? AutoDevStages
+        : GetPipelineStages(_run.FlowType);
+
+    private static DevFlowStage[] GetPipelineStages(DevFlowType flowType) => flowType switch
+    {
+        DevFlowType.Discovery => DiscoveryStages,
+        _ => AutoDevStages
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -307,7 +337,7 @@
             if (_run != null)
             {
                 _executeInputText = string.IsNullOrWhiteSpace(_run.Description) ? _run.Title : $"{_run.Title}\n\n{_run.Description}";
-                foreach (var s in AllStages)
+                foreach (var s in PipelineStages)
                     _gateComments.TryAdd(s, string.Empty);
             }
         }
@@ -420,10 +450,19 @@
     {
         DevFlowRunStatus.Created => "Creado",
         DevFlowRunStatus.InProgress => "En progreso",
+        DevFlowRunStatus.PendingApproval => "Pendiente de aprobación",
         DevFlowRunStatus.Paused => "Pausado",
         DevFlowRunStatus.Completed => "Completado",
         DevFlowRunStatus.Cancelled => "Cancelado",
         _ => s.ToString()
+    };
+
+    private static string GetFlowTypeLabel(DevFlowType flowType) => flowType switch
+    {
+        DevFlowType.Discovery => "Discovery",
+        DevFlowType.AutoDev => "AutoDev",
+        DevFlowType.Development => "Development",
+        _ => flowType.ToString()
     };
 
     private static string GetStageLabel(DevFlowStage s) => s switch
@@ -431,6 +470,8 @@
         DevFlowStage.UR => "UR",
         DevFlowStage.PM => "PM",
         DevFlowStage.PO => "PO",
+        DevFlowStage.UX => "UX",
+        DevFlowStage.PLAN => "PLAN",
         DevFlowStage.DEV => "DEV",
         _ => s.ToString()
     };
@@ -447,11 +488,18 @@
     {
         DevFlowRunStatus.Created => Color.Info,
         DevFlowRunStatus.InProgress => Color.Primary,
+        DevFlowRunStatus.PendingApproval => Color.Warning,
         DevFlowRunStatus.Paused => Color.Warning,
         DevFlowRunStatus.Completed => Color.Success,
         DevFlowRunStatus.Cancelled => Color.Error,
         _ => Color.Default
     };
+
+    private async Task ShowArtifactContent(DevFlowArtifactSummaryDto artifact)
+    {
+        var title = $"{GetStageLabel(artifact.Stage)} - {artifact.AgentRole}";
+        await ShowCopyDialog(title, artifact.PayloadJson);
+    }
 
     private async Task LoadBranchPlan()
     {

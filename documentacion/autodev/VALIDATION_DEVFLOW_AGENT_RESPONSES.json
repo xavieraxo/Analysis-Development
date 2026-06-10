@@ -1,0 +1,50 @@
+﻿{
+    "runId":  4,
+    "getResponse":  {
+                        "flowType":  "Discovery",
+                        "scope":  "UserProject",
+                        "status":  "PendingApproval",
+                        "currentStage":  "PLAN",
+                        "artifacts":  [
+                                          {
+                                              "stage":  "UR",
+                                              "agentRole":  "UR",
+                                              "payloadJsonLength":  992,
+                                              "payloadPreview":  "### Modulo de Suscripciones con Limites: Análisis Inicial del Ur\n\n**Reúne más in"
+                                          },
+                                          {
+                                              "stage":  "PM",
+                                              "agentRole":  "PM",
+                                              "payloadJsonLength":  1563,
+                                              "payloadPreview":  "Asumiendo que la tarea es producir un plan detallado para el modulo de suscripci"
+                                          },
+                                          {
+                                              "stage":  "PO",
+                                              "agentRole":  "PO",
+                                              "payloadJsonLength":  1286,
+                                              "payloadPreview":  "Para abordar la tarea de definir el problema, usuario, valor y funcionalidades d"
+                                          },
+                                          {
+                                              "stage":  "UX",
+                                              "agentRole":  "UX",
+                                              "payloadJsonLength":  4788,
+                                              "payloadPreview":  "**Revisión del Plan: Modulo de Suscripciones con Limites**\n\nAnteriormente hemos "
+                                          },
+                                          {
+                                              "stage":  "PLAN",
+                                              "agentRole":  "PM",
+                                              "payloadJsonLength":  3580,
+                                              "payloadPreview":  "[UR] ### Modulo de Suscripciones con Limites\n\n**Requisitos**\n\n1.  Criterio: \n   "
+                                          }
+                                      ]
+                    },
+    "executeStageSample":  {
+                               "note":  "Run 4 UR execute after redeploy",
+                               "artifactPayloadJsonLength":  992,
+                               "runFlowType":  "Discovery",
+                               "runScope":  "UserProject"
+                           },
+    "dbPayloadLengths":  {
+
+                         }
+}

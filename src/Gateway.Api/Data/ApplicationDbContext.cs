@@ -132,6 +132,7 @@ public class ApplicationDbContext : IdentityDbContext<
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Title).IsRequired().HasMaxLength(255);
             entity.Property(e => e.Description).IsRequired();
+            entity.Property(e => e.FlowType).IsRequired();
             entity.Property(e => e.Status).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.Property(e => e.UpdatedAt).IsRequired();
@@ -308,4 +309,3 @@ public class ApplicationDbContext : IdentityDbContext<
         });
     }
 }
-

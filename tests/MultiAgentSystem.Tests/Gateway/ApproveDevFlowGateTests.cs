@@ -21,11 +21,14 @@ public class ApproveDevFlowGateTests : IClassFixture<GatewayApiFactory>
     public async Task ApproveGate_ConSuperUsuario_ApruebaGate_Devuelve200()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
 
         var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "Run para approve test",
-            Description = "Desc"
+            Description = "Desc",
+            FlowType = DevFlowType.AutoDev
         });
         var created = await createResponse.Content.ReadFromJsonAsync<DevFlowRunResponse>();
         Assert.NotNull(created);
@@ -55,11 +58,14 @@ public class ApproveDevFlowGateTests : IClassFixture<GatewayApiFactory>
     public async Task ApproveGate_ConSuperUsuario_Rechaza_RunQuedaCancelled()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
 
         var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "Run para reject test",
-            Description = "Desc"
+            Description = "Desc",
+            FlowType = DevFlowType.AutoDev
         });
         var created = await createResponse.Content.ReadFromJsonAsync<DevFlowRunResponse>();
         Assert.NotNull(created);
@@ -101,11 +107,14 @@ public class ApproveDevFlowGateTests : IClassFixture<GatewayApiFactory>
     public async Task ApproveGate_Upsert_AprobarDosVeces_ActualizaGateSinDuplicados()
     {
         var client = _factory.CreateClient();
+        var projectId = await GatewayTestHelpers.CreateProjectAsync(client);
 
         var createResponse = await client.PostAsJsonAsync("/api/devflow/runs", new CreateDevFlowRunRequest
         {
+            ProjectId = projectId,
             Title = "Run para upsert test",
-            Description = "Desc"
+            Description = "Desc",
+            FlowType = DevFlowType.AutoDev
         });
         var created = await createResponse.Content.ReadFromJsonAsync<DevFlowRunResponse>();
         Assert.NotNull(created);
