@@ -547,6 +547,37 @@ app.MapPost("/api/projects", [Authorize] async (HttpContext context, IProjectSer
 .WithName("CreateProject")
 .Produces<ProjectDto>(StatusCodes.Status201Created);
 
+// Crear proyecto + run Discovery inicial (visión: Idea → Discovery).
+// Endpoint dedicado para no alterar el contrato de POST /api/projects (tarea 10.1.1, PLAN_DISCOVERY_MVP).
+app.MapPost("/api/projects/with-discovery", [Authorize] async (
+    HttpContext context,
+    IProjectService projectService,
+    CreateProjectRequest request,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Name))
+    {
+        return Results.BadRequest(new { message = "El nombre del proyecto es obligatorio." });
+    }
+
+    var normalized = request with { Description = request.Description ?? string.Empty };
+    var userId = await GetLegacyUserIdAsync(context.User, context.RequestServices);
+
+    try
+    {
+        var result = await projectService.CreateProjectWithInitialDevFlowRunAsync(normalized, userId, ct);
+        return Results.Created($"/api/projects/{result.Project.Id}", result);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Conflict(new { message = ex.Message });
+    }
+})
+.WithName("CreateProjectWithDiscovery")
+.Produces<ProjectWithDevFlowDto>(StatusCodes.Status201Created)
+.Produces(StatusCodes.Status400BadRequest)
+.Produces(StatusCodes.Status409Conflict);
+
 // Obtener proyecto por ID
 app.MapGet("/api/projects/{id}", [Authorize] async (int id, HttpContext context, IProjectService projectService) =>
 {
