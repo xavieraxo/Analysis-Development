@@ -578,6 +578,40 @@ app.MapPost("/api/projects/with-discovery", [Authorize] async (
 .Produces(StatusCodes.Status400BadRequest)
 .Produces(StatusCodes.Status409Conflict);
 
+// Runs DevFlow de un proyecto propio (tarea 10.2.1). El dueño ve los runs de su proyecto;
+// SuperUsuario los de cualquiera. Proyecto ajeno → 404.
+app.MapGet("/api/projects/{id}/devflow-runs", [Authorize] async (
+    int id,
+    HttpContext context,
+    IProjectService projectService,
+    IDevFlowService devFlowService,
+    int? page,
+    int? pageSize) =>
+{
+    if (!context.User.IsInRole(AuthorizationRoles.SuperUsuario))
+    {
+        var userId = await GetLegacyUserIdAsync(context.User, context.RequestServices);
+        var project = await projectService.GetProjectByIdAsync(id, userId);
+        if (project == null)
+            return Results.NotFound();
+    }
+
+    var result = await devFlowService.GetRunsAsync(new DevFlowRunsQueryParams
+    {
+        ProjectId = id,
+        Page = page ?? 1,
+        PageSize = pageSize ?? 20
+    });
+
+    return result == null
+        ? Results.BadRequest(new { message = "Parámetros de paginación inválidos" })
+        : Results.Ok(result);
+})
+.WithName("GetProjectDevFlowRuns")
+.Produces<PagedResponse<DevFlowRunListItem>>(StatusCodes.Status200OK)
+.Produces(StatusCodes.Status400BadRequest)
+.Produces(StatusCodes.Status404NotFound);
+
 // Obtener proyecto por ID
 app.MapGet("/api/projects/{id}", [Authorize] async (int id, HttpContext context, IProjectService projectService) =>
 {
@@ -871,8 +905,18 @@ app.MapGet("/api/devflow/runs", [Authorize(Policy = AuthorizationRoles.SuperUser
 .Produces(StatusCodes.Status401Unauthorized)
 .Produces(StatusCodes.Status403Forbidden);
 
-app.MapGet("/api/devflow/runs/{id}", [Authorize(Policy = AuthorizationRoles.SuperUserOnlyPolicy)] async (int id, IDevFlowService devFlowService) =>
+// Acceso por ownership (tarea 10.2.1): el dueño del proyecto consulta su run; SuperUsuario conserva acceso total.
+// Para runs ajenos se responde 404 (no se revela su existencia).
+app.MapGet("/api/devflow/runs/{id}", [Authorize] async (int id, HttpContext context, IDevFlowService devFlowService) =>
 {
+    if (!context.User.IsInRole(AuthorizationRoles.SuperUsuario))
+    {
+        var userId = await GetLegacyUserIdAsync(context.User, context.RequestServices);
+        var owned = await devFlowService.IsRunOwnedByUserAsync(id, userId);
+        if (!owned)
+            return Results.NotFound();
+    }
+
     var run = await devFlowService.GetRunByIdAsync(id);
     return run == null ? Results.NotFound() : Results.Ok(run);
 })

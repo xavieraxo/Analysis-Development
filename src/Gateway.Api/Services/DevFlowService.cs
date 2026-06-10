@@ -112,6 +112,13 @@ public class DevFlowService : IDevFlowService
         };
     }
 
+    public async Task<bool> IsRunOwnedByUserAsync(int runId, int userId, CancellationToken cancellationToken = default)
+    {
+        return await _context.DevFlowRuns
+            .AsNoTracking()
+            .AnyAsync(r => r.Id == runId && r.Project.UserId == userId, cancellationToken);
+    }
+
     public async Task<ExecuteStageResult> ExecuteStageAsync(int runId, ExecuteStageRequest request, CancellationToken cancellationToken = default)
     {
         var run = await _context.DevFlowRuns
