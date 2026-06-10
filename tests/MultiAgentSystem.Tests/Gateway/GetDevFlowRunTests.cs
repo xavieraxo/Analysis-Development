@@ -87,7 +87,9 @@ public class GetDevFlowRunTests : IClassFixture<GatewayApiFactory>
 }
 
 /// <summary>
-/// Verifica que Admin recibe 403 al obtener DevFlow run.
+/// Desde la tarea 10.2.1 (acceso por ownership) GET /api/devflow/runs/{id} ya no es
+/// SuperUsuario-only: un usuario autenticado que no es dueño del proyecto del run
+/// recibe 404 (no se revela la existencia de runs ajenos). Admin no es dueño del run.
 /// </summary>
 public class GetDevFlowRunAdminForbiddenTests : IClassFixture<GatewayApiFactoryAdmin>
 {
@@ -99,12 +101,12 @@ public class GetDevFlowRunAdminForbiddenTests : IClassFixture<GatewayApiFactoryA
     }
 
     [Fact]
-    public async Task GetDevFlowRun_ConAdmin_Devuelve403()
+    public async Task GetDevFlowRun_ConAdmin_NoDueño_Devuelve404()
     {
         var client = _factory.CreateClient();
 
         var response = await client.GetAsync("/api/devflow/runs/1");
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }

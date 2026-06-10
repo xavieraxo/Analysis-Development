@@ -49,6 +49,16 @@ public interface IDevFlowService
     Task<ApproveGateResult> ApproveGateAsync(int runId, ApproveGateRequest request, int decidedByUserId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Indica si el run pertenece a un proyecto cuyo dueño es el usuario indicado.
+    /// Usado por la política de acceso por ownership (tarea 10.2.1).
+    /// </summary>
+    /// <param name="runId">ID del run.</param>
+    /// <param name="userId">ID (legacy) del usuario.</param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    /// <returns>True si el proyecto del run pertenece al usuario.</returns>
+    Task<bool> IsRunOwnedByUserAsync(int runId, int userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Obtiene el Branch Plan de un run para exportación (JSON o Markdown).
     /// </summary>
     /// <param name="runId">ID del run.</param>
